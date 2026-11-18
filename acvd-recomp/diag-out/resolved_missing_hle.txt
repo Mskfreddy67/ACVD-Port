@@ -1,0 +1,282 @@
+[cellAudio]
+  0x04af134e : cellAudioCreateNotifyEventQueue
+[cellGame]
+  0x70acec67 : cellGameContentPermit
+  0xb0a1f8c6 : cellGameContentErrorDialog
+  0xdb9819f3 : cellGameDataCheck
+  0xf52639ea : cellGameBootCheck
+  0x3a5d726a : cellGameGetParamString
+  0x42a2e133 : cellGameCreateGameData
+  0xb7a45caf : cellGameGetParamInt
+  0xce4374f6 : cellGamePatchCheck
+  0xdaa5cd20 : cellGameSetParamString
+  0xef9d42d5 : cellGameGetSizeKB
+[cellGcmSys]
+  0x5a41c10f : cellGcmGetTimeStamp
+  0x0b4b62d5 : cellGcmSetPrepareFlip
+  0x4524cccd : cellGcmBindTile
+  0x4d7ce993 : cellGcmSetSecondVFrequency
+  0x657571f7 : cellGcmGetTileInfo
+  0x9dc04436 : cellGcmBindZcull
+  0xa75640e8 : cellGcmUnbindZcull
+  0xacee8542 : cellGcmSetFlipImmediate
+  0xbd100dbc : cellGcmSetTileInfo
+  0xd9b7653e : cellGcmUnbindTile
+  0xdc494430 : cellGcmSetSecondVHandler
+  0xffe0160e : cellGcmSetVBlankFrequency
+  0x5e2ee0f0 : cellGcmGetDefaultCommandWordSize
+  0x8cdf8c70 : cellGcmGetDefaultSegmentWordSize
+  0x9ba451e4 : cellGcmSetDefaultFifoSize
+  0xd8f88e1a : UNKNOWN
+[cellHttp]
+  0x1395d8d1 : cellHttpClientSetSslCallback
+  0x2d52848b : cellHttpTransactionAbortConnection
+  0x522180bc : cellHttpsInit
+  0xd7d3cd5d : cellHttpClientSetProxy
+  0xe6d4202f : cellHttpsEnd
+[cellHttpUtil]
+  0xa3457869 : cellHttpUtilParseProxy
+[cellJpgEnc]
+  0x12d9b6c5 : cellJpgEncQueryAttr
+  0x2ae79be8 : cellJpgEncWaitForInput
+  0x4262e880 : cellJpgEncGetStreamInfo
+  0x636dc89e : cellJpgEncEncodePicture2
+  0x969fc5f7 : cellJpgEncClose
+  0x9b4e3a74 : cellJpgEncWaitForOutput
+  0xa4bfae51 : cellJpgEncOpen
+[cellMic]
+  0x05709bbf : cellMicOpenEx
+  0x07e1b12c : cellMicRead
+  0x7903400e : cellMicSetNotifyEventQueue
+  0x8d229f8e : cellMicClose
+  0xdd724314 : cellMicStart
+  0xfcfaf246 : cellMicStop
+[cellNetCtl]
+  0x3a12865f : cellNetCtlGetNatInfo
+[cellPngDec]
+  0x157d30c5 : cellPngDecCreate
+  0x2310f155 : cellPngDecDecodeData
+  0x5b3d1ff1 : cellPngDecClose
+  0x820dae1a : cellPngDecDestroy
+  0x9ccdcc95 : cellPngDecReadHeader
+  0xd2bc5bfd : cellPngDecOpen
+  0xe97c9bd4 : cellPngDecSetParameter
+[cellPngEnc]
+  0x117cd726 : cellPngEncClose
+  0x19256dc5 : cellPngEncOpen
+  0x496cfcd0 : cellPngEncQueryAttr
+  0x585269bc : cellPngEncGetStreamInfo
+  0x5b546ca4 : cellPngEncEncodePicture
+  0x662bd637 : cellPngEncWaitForInput
+  0x90ef2963 : cellPngEncWaitForOutput
+[cellSail]
+  0x10298371 : cellSailAviMovieGetHeader
+  0x1872331b : cellSailGraphicsAdapterPtsToTimePosition
+  0x23654375 : cellSailPlayerInitialize2
+  0x5f7c7a6f : cellSailPlayerSetParameter
+  0xc09e2f23 : cellSailAviStreamGetMediaType
+  0xcc3cca60 : cellSailAviStreamGetHeader
+  0xddebd2a5 : cellSailAviMovieGetStreamByTypeAndIndex
+[cellSpurs]
+  0x011ee38b : UNKNOWN
+  0x16394a4e : UNKNOWN
+  0x1656d49f : cellSpursLFQueueAttachLv2EventQueue
+  0x1d46fedf : cellSpursCreateTaskWithAttribute
+  0x34552fa6 : cellSpursTaskExitCodeInitialize
+  0x652b70e2 : cellSpursTasksetAttributeSetName
+  0x68aaeba9 : cellSpursJobGuardInitialize
+  0x73e06f91 : cellSpursLFQueueDetachLv2EventQueue
+  0x8a85674d : UNKNOWN
+  0x8f122ef8 : cellSpursTasksetAttributeSetTasksetSize
+  0xa121a224 : cellSpursTaskAttributeSetExitCodeContainer
+  0xb8474eff : UNKNOWN
+  0xc10931cb : cellSpursCreateTasksetWithAttribute
+  0xd5d0b256 : cellSpursJobGuardNotify
+  0xf5507729 : cellSpursEventFlagSet
+[cellSpursJq]
+  0x0f03f712 : cellSpursJobQueueAttributeSetSubmitWithEntryLock
+  0x43ddab4f : cellSpursJobQueueAttributeInitialize
+  0x8c97a96c : cellSpursShutdownJobQueue
+  0x8ce4cffa : cellSpursJoinJobQueue
+  0x983be7fc : UNKNOWN
+  0xb53436e7 : UNKNOWN
+  0xc39173a4 : UNKNOWN
+  0xc485d207 : cellSpursJobQueuePort2Destroy
+  0xf11fe0f1 : cellSpursJobQueuePort2Create
+  0xf244e799 : UNKNOWN
+  0xfacb3ced : cellSpursJobQueuePort2Sync
+  0x26fa81b4 : cellSpursJobQueuePortFinalize
+  0xf5de6363 : cellSpursJobQueuePortInitializeWithDescriptorBuffer
+[cellSsl]
+  0x1650aea4 : cellSslEnd
+  0x571afaca : cellSslCertificateLoader
+  0xfb02c9d2 : cellSslInit
+[cellSync]
+  0xd59aa307 : cellSyncLFQueueGetDirection
+[cellSysutil]
+  0x3e22cb4b : UNKNOWN
+  0x75bbb672 : UNKNOWN
+  0x3d1e1931 : UNKNOWN
+  0x7f21c918 : UNKNOWN
+  0x7fcfc915 : UNKNOWN
+  0xa11552f6 : cellSysutilGetBgmPlaybackStatus
+  0xa322db75 : UNKNOWN
+  0xb6d84526 : UNKNOWN
+  0xced17573 : UNKNOWN
+[cellSysutilAvc2]
+  0x04e1e1e4 : cellSysutilAvc2StopStreaming
+  0x16ff9ba0 : cellSysutilAvc2StartVoiceDetection
+  0x17481336 : cellSysutilAvc2UnloadAsync
+  0x178982d9 : cellSysutilAvc2StopVoiceDetection
+  0x1d73ab8c : cellSysutilAvc2LoadAsync
+  0x3447668a : cellSysutilAvc2SetStreamingTarget
+  0x712d51d6 : cellSysutilAvc2JoinChatRequest
+  0x74d22119 : cellSysutilAvc2StartStreaming
+  0x89456724 : cellSysutilAvc2InitParam
+  0x97b2da6a : cellSysutilAvc2LeaveChatRequest
+  0xccf0aeff : cellSysutilAvc2SetAttribute
+[cellSysutilAvconfExt]
+  0x65bf9ea3 : UNKNOWN
+  0xeb6c50fb : UNKNOWN
+  0xeb6fcff1 : UNKNOWN
+  0xfa6bcc17 : UNKNOWN
+[cellUserInfo]
+  0x2b761140 : cellUserInfoGetStat
+  0x3097cc1c : cellUserInfoSelectUser_ListType
+  0xc55e338b : cellUserInfoGetList
+[cellVoice]
+  0x0a563878 : cellVoiceStart
+  0x18d3df30 : cellVoiceDisconnectIPortFromOPort
+  0x2a01013e : cellVoiceCreateNotifyEventQueue
+  0x2de54871 : cellVoiceCreatePort
+  0x30f0b5ab : cellVoiceWriteToIPortEx
+  0x35d84910 : cellVoiceSetNotifyEventQueue
+  0x36472c57 : cellVoiceReadFromOPort
+  0x54ac3519 : cellVoiceGetPortInfo
+  0x9f70c475 : cellVoiceDeletePort
+  0xae6a21d5 : cellVoiceConnectIPortToOPort
+  0xc7cf1182 : cellVoiceInit
+  0xd3a84be1 : cellVoiceStop
+  0xdd000886 : cellVoiceRemoveNotifyEventQueue
+  0xe0e1ae12 : cellVoiceEnd
+  0xff0fa43a : cellVoiceResetPort
+[sceNp]
+  0x481ce0e8 : sceNpBasicAbortGui
+  0x8297f1ec : sceNpManagerRequestTicket2
+  0xa1709abd : sceNpManagerGetEntitlementById
+  0xad218faf : sceNpDrmIsAvailable
+  0xb66d1c46 : sceNpManagerGetEntitlementIdList
+  0x01fbbc9b : sceNpBasicSendMessageGui
+  0x0968aa36 : sceNpManagerGetTicket
+  0x2706eaa1 : sceNpScoreSetPlayerCharacterId
+  0x32c78a6a : sceNpBasicGetFriendPresenceByIndex
+  0x3d1760dc : sceNpLookupAbortTransaction
+  0x50b86d94 : sceNpSignalingAddExtendedHandler
+  0x5de61626 : sceNpLookupDestroyTitleCtx
+  0x5f2d9257 : sceNpLookupInit
+  0x73931bd0 : sceNpBasicGetBlockListEntryCount
+  0x7508112e : sceNpLookupPollAsync
+  0x7deb244c : sceNpScoreCensorComment
+  0x806960ab : sceNpBasicRecvMessageCustom
+  0x8440537c : sceNpLookupTerm
+  0xbcdbb2ab : sceNpBasicAddPlayersHistoryAsync
+  0xc3a991ee : sceNpScoreGetRankingByNpIdPcId
+  0xce81c7f0 : sceNpLookupCreateTitleCtx
+  0xceeebc7a : sceNpProfileCallGui
+  0xd12e40ae : sceNpLookupNpIdAsync
+  0xea2e9ffc : sceNpLookupCreateTransactionCtx
+  0xf2b3338a : sceNpBasicGetBlockListEntry
+  0xfb87cf5e : sceNpLookupDestroyTransactionCtx
+  0xff0a2378 : sceNpLookupUserProfileAsync
+  0xf042b14f : sceNpDrmIsAvailable2
+[sceNp2]
+  0x01379fd7 : sceNpMatching2DestroyContext
+  0x02065e3d : sceNpMatching2LeaveLobby
+  0x05bf2fbd : sceNpMatching2GetWorldInfoList
+  0x0884fc95 : sceNpMatching2RegisterLobbyEventCallback
+  0x0b2218a3 : sceNpMatching2GetLobbyMemberDataInternalList
+  0x0d22867f : sceNpMatching2SearchRoom
+  0x0ebe4c6b : sceNpMatching2SignalingGetConnectionStatus
+  0x12d0b0f9 : sceNpMatching2ContextStart
+  0x196a06f9 : sceNpMatching2GetMemoryInfo
+  0x1f372697 : sceNpMatching2LeaveRoom
+  0x215b0d75 : sceNpMatching2SetRoomDataExternal
+  0x23009d07 : sceNpMatching2Term2
+  0x29e78389 : sceNpMatching2JoinLobby
+  0x2ed909dc : sceNpMatching2AbortRequest
+  0x3457c0db : sceNpMatching2GetServerInfo
+  0x3c00c9d4 : sceNpMatching2GetEventData
+  0x41251f74 : sceNp2Init
+  0x5721e711 : sceNpMatching2JoinRoom
+  0x66f19527 : sceNpMatching2KickoutRoomMember
+  0x748029a2 : sceNpMatching2RegisterContextCallback
+  0x817d1090 : sceNpMatching2SetRoomDataInternal
+  0x8d3f8d49 : sceNpMatching2SignalingGetPingInfo
+  0x8e5cfe9f : sceNpMatching2GetServerIdListLocal
+  0x9344d41f : sceNpMatching2GrantRoomOwner
+  0x9cbce3f2 : sceNpMatching2CreateContext
+  0xa9e6103e : sceNpMatching2RegisterSignalingCallback
+  0xaa6c2c43 : sceNpMatching2ClearEventData
+  0xaadb7c12 : sceNp2Term
+  0xdb87b088 : sceNpMatching2SetDefaultRequestOptParam
+  0xdcb6b27d : sceNpMatching2RegisterRoomEventCallback
+  0xe7a3bc7a : sceNpMatching2CreateJoinRoom
+  0xefbd9357 : sceNpMatching2GetLobbyInfoList
+  0xf43c647a : sceNpMatching2ContextStop
+  0xf4babd3f : sceNpMatching2Init2
+  0xfa0583c6 : sceNpMatching2SetLobbyMemberDataInternal
+[sceNpCommerce2]
+  0x3539d233 : sceNpCommerce2Init
+  0xeef51be0 : sceNpCommerce2ExecuteStoreBrowse
+[sceNpTrophy]
+  0x1197b52c : sceNpTrophyRegisterContext
+  0x1c25470d : sceNpTrophyCreateHandle
+  0x370136fe : sceNpTrophyGetRequiredDiskSpace
+  0x3741ecc7 : sceNpTrophyDestroyContext
+  0x39567781 : sceNpTrophyInit
+  0x623cd2dc : sceNpTrophyDestroyHandle
+  0x8ceedd21 : sceNpTrophyUnlockTrophy
+  0xa7fabf4d : sceNpTrophyTerm
+  0xe3bf9a28 : sceNpTrophyCreateContext
+[sysPrxForUser]
+  0x26090058 : UNKNOWN
+  0x42b23552 : UNKNOWN
+  0x4f7172c9 : sys_process_is_stack
+  0x71a8472a : sys_get_random_number
+  0xa330ad84 : UNKNOWN
+  0xaa6d9bff : UNKNOWN
+  0xef68c17c : UNKNOWN
+[sys_fs]
+  0xb1840b53 : UNKNOWN
+  0x6d3bb15b : UNKNOWN
+  0x967a162b : UNKNOWN
+  0xaa3b4bcd : UNKNOWN
+[sys_io]
+  0x3ef66b95 : UNKNOWN
+  0x578e3c98 : UNKNOWN
+  0x6bd131f0 : UNKNOWN
+  0xa703a51d : UNKNOWN
+[sys_net]
+  0x13efe7f5 : UNKNOWN
+  0x1f953b9f : UNKNOWN
+  0x28e208bb : UNKNOWN
+  0x3f09e20a : UNKNOWN
+  0x5a045bd1 : UNKNOWN
+  0x64f66d35 : UNKNOWN
+  0x6db6e8cd : UNKNOWN
+  0x71f4c717 : UNKNOWN
+  0x858a930b : UNKNOWN
+  0x88f03575 : UNKNOWN
+  0x9647570b : UNKNOWN
+  0x9c056962 : UNKNOWN
+  0xa50777c6 : UNKNOWN
+  0xb0a59804 : UNKNOWN
+  0xc94f6939 : UNKNOWN
+  0xdabbc2c0 : UNKNOWN
+  0xdc751b40 : UNKNOWN
+  0xf7ac8941 : UNKNOWN
+  0xf9ec2db6 : UNKNOWN
+  0xfba04f37 : UNKNOWN
+  0x8d1b77fb : UNKNOWN
+[﻿cellSysutil]
+  0x189a74da : UNKNOWN

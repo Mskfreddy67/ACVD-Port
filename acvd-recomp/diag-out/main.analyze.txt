@@ -1,0 +1,4 @@
+﻿analysis: 107.63s, 14 passes
+opd entries 64296, functions 95176 (secondary 1071), reachable insns 7244795
+switch tables 1092 (22288 targets), unresolved bctr 0, invalid reachable words 0
+code words 6913177, covered 104.80%

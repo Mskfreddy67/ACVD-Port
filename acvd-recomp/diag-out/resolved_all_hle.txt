@@ -1,0 +1,167 @@
+[cellAudio]
+  0x04af134e : cellAudioCreateNotifyEventQueue
+[cellHttp]
+  0x1395d8d1 : cellHttpClientSetSslCallback
+  0x2d52848b : cellHttpTransactionAbortConnection
+  0x522180bc : cellHttpsInit
+  0xd7d3cd5d : cellHttpClientSetProxy
+  0xe6d4202f : cellHttpsEnd
+[cellHttpUtil]
+  0xa3457869 : cellHttpUtilParseProxy
+[cellNetCtl]
+  0x3a12865f : cellNetCtlGetNatInfo
+[cellPamf]
+  0x28b4e2c1 : cellPamfReaderSetStreamWithTypeAndIndex
+  0x67fd273b : cellPamfReaderGetStreamInfo
+  0x9ab20793 : cellPamfReaderGetStreamTypeAndChannel
+  0xd0230671 : cellPamfReaderGetNumberOfSpecificStreams
+[cellSail]
+  0x0247c69e : cellSailGraphicsAdapterGetFrame
+  0x0abb318b : cellSailDescriptorCreateDatabase
+  0x1139a206 : cellSailPlayerSetSoundAdapter
+  0x145f9b11 : cellSailPlayerOpenEsAudio
+  0x18b4629d : cellSailPlayerFinalize
+  0x18bcd21b : cellSailPlayerSetGraphicsAdapter
+  0x1c983864 : cellSailGraphicsAdapterInitialize
+  0x28336e89 : cellSailDescriptorDestroyDatabase
+  0x2e3ccb5e : cellSailGraphicsAdapterSetPreferredFormat
+  0x346ebba3 : cellSailMemAllocatorInitialize
+  0x34ecc1b9 : cellSailPlayerOpenStream
+  0x3a2d806c : cellSailFutureGet
+  0x3d0d3b72 : cellSailSoundAdapterInitialize
+  0x44a20e79 : cellSailGraphicsAdapterUpdateAvSync
+  0x47632810 : cellSailPlayerReplaceEventHandler
+  0x477501f6 : cellSailPlayerOpenEsVideo
+  0x4cc54f8e : cellSailFutureInitialize
+  0x69793952 : cellSailPlayerUnsubscribeEvent
+  0x76488bb1 : cellSailGraphicsAdapterFinalize
+  0x76b1a425 : cellSailDescriptorSetAutoSelection
+  0x7c8dff3b : cellSailPlayerAddDescriptor
+  0x7eb8d6b5 : cellSailSoundAdapterGetFrame
+  0x85beffcc : cellSailPlayerCloseStream
+  0x91d287f6 : cellSailPlayerSetEsAudioMuted
+  0x9553af65 : cellSailFutureFinalize
+  0xa37fed15 : cellSailFutureSet
+  0xbdf21b0f : cellSailPlayerBoot
+  0xd1462438 : cellSailSoundAdapterFinalize
+  0xd1d55a90 : cellSailPlayerSetPaused
+  0xd5f9a15b : cellSailDescriptorGetStreamType
+  0xd7938b8d : cellSailPlayerCreateDescriptor
+  0xe535b0d3 : cellSailPlayerStart
+  0xeba8d4ec : cellSailPlayerStop
+  0xeec22809 : cellSailSoundAdapterUpdateAvSync
+  0xf25f197d : cellSailSoundAdapterGetFormat
+  0xfc5baf8a : cellSailPlayerSetRepeatMode
+  0xfc839bd4 : cellSailPlayerDestroyDescriptor
+  0xffd58aa4 : cellSailGraphicsAdapterGetFormat
+[cellSpurs]
+  0x07529113 : cellSpursAttributeSetNamePrefix
+  0x22aab31d : cellSpursEventFlagDetachLv2EventQueue
+  0x303c19cd : cellSpursCreateJobChainWithAttribute
+  0x3548f483 : _cellSpursJobChainAttributeInitialize
+  0x373523d4 : cellSpursEventFlagWait
+  0x4ac7bae4 : cellSpursEventFlagClear
+  0x4e66d483 : cellSpursDetachLv2EventQueue
+  0x5ef96465 : _cellSpursEventFlagInitialize
+  0x738e40e6 : cellSpursShutdownJobChain
+  0x87630976 : cellSpursEventFlagAttachLv2EventQueue
+  0x95180230 : _cellSpursAttributeInitialize
+  0x9f72add3 : cellSpursJoinTaskset
+  0xa789e631 : cellSpursShutdownTaskset
+  0xa7c066de : cellSpursJoinJobChain
+  0xaa6269a8 : cellSpursInitializeWithAttribute
+  0xacfc8dbc : cellSpursInitialize
+  0xb9bc6207 : cellSpursAttachLv2EventQueue
+  0xbeb600ac : cellSpursCreateTask
+  0xca4c4600 : cellSpursFinalize
+  0xf31731bb : cellSpursRunJobChain
+[cellSpursJq]
+  0x0f03f712 : cellSpursJobQueueAttributeSetSubmitWithEntryLock
+  0x43ddab4f : cellSpursJobQueueAttributeInitialize
+  0x8c97a96c : cellSpursShutdownJobQueue
+  0x8ce4cffa : cellSpursJoinJobQueue
+  0x983be7fc : _cellSpursCreateJobQueueWithJobDescriptorPool
+  0xb53436e7 : _cellSpursJobQueuePort2PushJobListBody
+  0xc39173a4 : _cellSpursJobQueuePort2CopyPushJobBody
+  0xc485d207 : cellSpursJobQueuePort2Destroy
+  0xf11fe0f1 : cellSpursJobQueuePort2Create
+  0xf244e799 : _cellSpursCreateJobQueue
+  0xfacb3ced : cellSpursJobQueuePort2Sync
+  0x26fa81b4 : cellSpursJobQueuePortFinalize
+  0xf5de6363 : cellSpursJobQueuePortInitializeWithDescriptorBuffer
+[cellSync]
+  0xd59aa307 : cellSyncLFQueueGetDirection
+[cellSysutil]
+  0x189a74da : cellSysutilCheckCallback
+[cellSysutilAvc2]
+  0x04e1e1e4 : cellSysutilAvc2StopStreaming
+  0x16ff9ba0 : cellSysutilAvc2StartVoiceDetection
+  0x17481336 : cellSysutilAvc2UnloadAsync
+  0x178982d9 : cellSysutilAvc2StopVoiceDetection
+  0x1d73ab8c : cellSysutilAvc2LoadAsync
+  0x3447668a : cellSysutilAvc2SetStreamingTarget
+  0x712d51d6 : cellSysutilAvc2JoinChatRequest
+  0x74d22119 : cellSysutilAvc2StartStreaming
+  0x89456724 : cellSysutilAvc2InitParam
+  0x97b2da6a : cellSysutilAvc2LeaveChatRequest
+  0xccf0aeff : cellSysutilAvc2SetAttribute
+[cellSysutilAvconfExt]
+  0x65bf9ea3 : cellAudioInGetAvailableDeviceInfo
+  0xeb6c50fb : cellAudioInSetDeviceMode
+  0xeb6fcff1 : cellAudioInRegisterDevice
+  0xfa6bcc17 : cellAudioInUnregisterDevice
+[sceNp]
+  0x481ce0e8 : sceNpBasicAbortGui
+  0x8297f1ec : sceNpManagerRequestTicket2
+  0xa1709abd : sceNpManagerGetEntitlementById
+  0xad218faf : sceNpDrmIsAvailable
+  0xb66d1c46 : sceNpManagerGetEntitlementIdList
+  0x01fbbc9b : sceNpBasicSendMessageGui
+  0x0968aa36 : sceNpManagerGetTicket
+  0x2706eaa1 : sceNpScoreSetPlayerCharacterId
+  0x32c78a6a : sceNpBasicGetFriendPresenceByIndex
+  0x3d1760dc : sceNpLookupAbortTransaction
+  0x50b86d94 : sceNpSignalingAddExtendedHandler
+  0x5de61626 : sceNpLookupDestroyTitleCtx
+  0x5f2d9257 : sceNpLookupInit
+  0x73931bd0 : sceNpBasicGetBlockListEntryCount
+  0x7508112e : sceNpLookupPollAsync
+  0x7deb244c : sceNpScoreCensorComment
+  0x806960ab : sceNpBasicRecvMessageCustom
+  0x8440537c : sceNpLookupTerm
+  0xbcdbb2ab : sceNpBasicAddPlayersHistoryAsync
+  0xc3a991ee : sceNpScoreGetRankingByNpIdPcId
+  0xce81c7f0 : sceNpLookupCreateTitleCtx
+  0xceeebc7a : sceNpProfileCallGui
+  0xd12e40ae : sceNpLookupNpIdAsync
+  0xea2e9ffc : sceNpLookupCreateTransactionCtx
+  0xf2b3338a : sceNpBasicGetBlockListEntry
+  0xfb87cf5e : sceNpLookupDestroyTransactionCtx
+  0xff0a2378 : sceNpLookupUserProfileAsync
+  0xf042b14f : sceNpDrmIsAvailable2
+[sysPrxForUser]
+  0x26090058 : sys_prx_load_module
+  0x42b23552 : sys_prx_register_library
+  0x4f7172c9 : sys_process_is_stack
+  0x71a8472a : sys_get_random_number
+  0xa330ad84 : sys_prx_load_module_on_memcontainer_by_fd
+  0xaa6d9bff : sys_prx_load_module_on_memcontainer
+  0xef68c17c : sys_prx_load_module_by_fd
+[sys_fs]
+  0xb1840b53 : cellFsSdataOpen
+  0x6d3bb15b : cellFsSdataOpenByFd
+  0x967a162b : cellFsFsync
+  0xaa3b4bcd : cellFsGetFreeSize
+[sys_io]
+  0x3ef66b95 : cellMouseClearBuf
+  0x578e3c98 : cellPadSetPortSetting
+  0x6bd131f0 : cellMouseGetDataList
+  0xa703a51d : cellPadGetInfo2
+[sys_net]
+  0x3f09e20a : UNKNOWN
+  0x64f66d35 : UNKNOWN
+  0xc94f6939 : UNKNOWN
+  0xdc751b40 : UNKNOWN
+  0xf9ec2db6 : UNKNOWN
+  0xfba04f37 : UNKNOWN
+  0x8d1b77fb : sys_net_abort_socket

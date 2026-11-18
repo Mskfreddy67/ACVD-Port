@@ -1,0 +1,26 @@
+﻿# Build & local runtime data
+local/
+build/
+out/
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.lib
+*.dll
+
+# Logs & debug dumps
+*.log
+*.dmp
+setup_debug*
+setup_clean*
+tail_*
+
+# IDE & OS
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+Thumbs.db
+.DS_Store
