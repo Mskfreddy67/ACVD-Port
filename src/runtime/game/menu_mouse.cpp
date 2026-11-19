@@ -543,6 +543,10 @@ void frame(Ctx& ctx) {
       if (e.kind == Event::LeftDown) {
         press(kStart, 0, now_ms());
         if (!movie_playing()) {
+          POINT p{};
+          float gx = 0, gy = 0;
+          HWND hwnd = static_cast<HWND>(gpu::window_handle());
+          if (hwnd && GetCursorPos(&p) && ScreenToClient(hwnd, &p)) to_game(p.x, p.y, &gx, &gy);
           LOG_I("menu_mouse", "menu_mouse: click -> CROSS at %d,%d", int(gx), int(gy));
           cross_after_start();
         }

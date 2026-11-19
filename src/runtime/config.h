@@ -48,7 +48,7 @@ struct Config {
   bool spu_interp = false;     // --spu-interp: use the SPU interpreter instead of compiled code
   unsigned skip_fp = 0;        // --skip-fp N: skip fragment program N (debugging)
   bool verbose_diag = false;   // --verbose-diag: enable verbose trace channels (sync-sig, state-watch, etc.)
-  u32 dump_surface = 0;        // --dump-surface ADDR: dump D3D11 surface at address to PNG in run_dir
+  unsigned dump_surface = 0;   // --dump-surface ADDR: dump D3D11 surface at address to PNG in run_dir
 
   double seconds = 0;          // --seconds N: auto-exit after N seconds
   bool headless = false;       // --headless: run without window/presentation
