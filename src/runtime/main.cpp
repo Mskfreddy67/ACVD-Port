@@ -1,4 +1,4 @@
-// ac4: runtime host for the recompiled Armored Core 4 (BLUS30027) executable.
+// acvd: runtime host for the recompiled Armored Core: Verdict Day (BLUS31194) executable.
 //   ac4 [--data <dir>] [--user <dir>] [--disc <dir>] [--flash <dir>] [--seconds N] [--fps N|display|uncapped] ...; options below
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -104,13 +104,7 @@ int main(int argc, char** argv) {
   c.data_dir = data.string();
   // The user's game folder: by default the disc folder inside the current directory; the first
   // line of <data>\config\disc_root.txt names another one; --disc overrides both.
-  // ACVD-Port: also accept "Armored Core Verdict Day (USA)" as a default disc folder name.
-  c.disc_root = (root / "Armored Core 4 (USA)").string();
-  {
-    fs::path acvd_default = root / "Armored Core Verdict Day (USA)";
-    if (!fs::exists(c.disc_root) && fs::exists(acvd_default))
-      c.disc_root = acvd_default.string();
-  }
+  c.disc_root = (root / "Armored Core Verdict Day (USA)").string();
   if (std::ifstream f(data / "config" / "disc_root.txt"); f) {
     std::string line;
     std::getline(f, line);
@@ -118,9 +112,8 @@ int main(int argc, char** argv) {
     size_t b = line.find_first_not_of(" \"");
     if (b != std::string::npos && !line.empty()) c.disc_root = line.substr(b);
   }
-  // prepared dir: use the title_id subdirectory when available; fall back to BLUS30027 for AC4.
-  // For ACVD this is set after reading PARAM.SFO (below); default keeps AC4 layout intact.
-  c.prepared = (data / "game" / "BLUS30027").string();
+  // prepared dir: use the title_id subdirectory when available; fall back to BLUS31194 for ACVD.
+  c.prepared = (data / "game" / "BLUS31194").string();
   c.hdd0 = (data / "hdd0").string();
   c.hdd1 = (data / "hdd1").string();
   c.flash = (data / "game" / "dev_flash").string();  // the dev_flash file(s) imported from the player's RPCS3
@@ -153,7 +146,7 @@ int main(int argc, char** argv) {
     fs::create_directories(run);
     if (c.keep_runs) prune_runs(data / "runs", c.keep_runs);
     c.run_dir = run.string();
-    log_open((run / "ac4.log").string());
+    log_open((run / "acvd.log").string());
   } catch (const std::exception& e) {
     std::fprintf(stderr, "cannot create the run directory %s: %s\n", run.string().c_str(), e.what());
     return 1;
@@ -233,8 +226,27 @@ int main(int argc, char** argv) {
       c.shot_path = next();
     }
     else if (a == "--headless") c.headless = true;
+    else if (a == "--help" || a == "-h") {
+      std::printf("Armored Core: Verdict Day PC port %s\n"
+                  "Usage: acvd [options]\n\n"
+                  "Options:\n"
+                  "  --data <dir>         Local data directory (default: local)\n"
+                  "  --disc <dir>         Game disc directory\n"
+                  "  --user <dir>         Player save directory\n"
+                  "  --windowed           Run in windowed mode\n"
+                  "  --fullscreen         Run in fullscreen mode\n"
+                  "  --fps <n>            Frame rate limit (e.g. 60, display, uncapped)\n"
+                  "  --trace-hle          Log every HLE call with args/return: hle: name(args) -> ret [thread]\n"
+                  "  --trace-rsx [level]  Trace RSX methods\n"
+                  "  --spu-collect        Record SPU code traces to local/spu_cache\n"
+                  "  --spu-interp         Run SPU via interpreter instead of compiled code\n"
+                  "  --lenient            Unimplemented HLE calls return 0 instead of asserting\n"
+                  "  --help, -h           Show this help message\n",
+                  AC4_VERSION);
+      return 0;
+    }
     else {
-      std::fprintf(stderr, "unknown argument %s\n", a.c_str());
+      std::fprintf(stderr, "unknown argument %s (use --help for options)\n", a.c_str());
       return 2;
     }
   }
@@ -282,14 +294,13 @@ int main(int argc, char** argv) {
     c.title_id = ac4::sfo::get_string(sfo, "TITLE_ID");
     c.title = ac4::sfo::get_string(sfo, "TITLE");
     LOG_I("main", "title %s (%s), version %s", c.title.c_str(), c.title_id.c_str(), ac4::sfo::get_string(sfo, "VERSION").c_str());
-    // ACVD-Port: resolve the prepared directory from the disc's title_id (BLUS31194/BLES01898),
-    // falling back to the BLUS30027 layout only when the title_id-specific folder is absent.
+    // ACVD-Port: resolve the prepared directory from the disc's title_id (BLUS31194/BLES01898)
     {
       fs::path prepared_by_id = fs::path(data) / "game" / c.title_id;
       if (fs::exists(prepared_by_id))
         c.prepared = prepared_by_id.string();
-      else if (c.title_id != "BLUS30027")
-        LOG_W("main", "prepared dir for %s not found at %s; using %s (create it with ac4-prep --game acvd)",
+      else
+        LOG_W("main", "prepared dir for %s not found at %s; using %s",
               c.title_id.c_str(), prepared_by_id.string().c_str(), c.prepared.c_str());
     }
   } catch (const std::exception& e) {

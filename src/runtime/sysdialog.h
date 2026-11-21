@@ -31,6 +31,9 @@ int choose(const std::string& heading, const std::vector<ListItem>& items, int f
 bool confirm(const std::string& text);
 // Modal message with one button.
 void message(const std::string& text);
+// Non-dismissible progress overlay, used while a system utility is performing a save.
+void begin_progress(const std::string& text);
+void end_progress();
 // Modal text entry (the on-screen keyboard's stand-in): returns false when the user backs out or
 // the dialog is aborted. Text is UTF-16; at most max_chars characters.
 bool text_input(const std::string& prompt, const std::u16string& initial, u32 max_chars, std::u16string* out);

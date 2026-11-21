@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "runtime/hle.h"
+#include "runtime/sysutil.h"
 
 namespace rt {
 namespace {
@@ -102,8 +103,17 @@ s32 sceNpManagerRegisterCallback(u32 cb, u32 arg) {
   std::lock_guard lk(g_mu);
   if (!g_init) return SCE_NP_ERROR_NOT_INITIALIZED;
   if (!cb) return SCE_NP_ERROR_INVALID_ARGUMENT;
-  g_manager_cb = cb;  // never invoked: the status never changes while offline
+  g_manager_cb = cb;
   g_manager_cb_arg = arg;
+  LOG_I("np", "sceNpManagerRegisterCallback: cb=0x%08x, arg=0x%08x; delivering offline status", cb, arg);
+  sysutil::post_callback([cb, arg](ppu::Context& ctx) {
+    // The callback's result is the manager status, not the HLE function's CELL_OK return code.
+    // Keep it consistent with sceNpManagerGetStatus so offline-only startup cannot look like it
+    // is still waiting for a ticket/profile.
+    LOG_I("np", "delivering NP Manager status OFFLINE (event=1, status=%d) to cb=0x%08x (arg=0x%08x)",
+          SCE_NP_MANAGER_STATUS_OFFLINE, cb, arg);
+    hle::call_guest(ctx, cb, {1 /* manager status changed */, u64(s64(SCE_NP_MANAGER_STATUS_OFFLINE)), arg});
+  });
   return CELL_OK;
 }
 s32 sceNpManagerUnregisterCallback() {

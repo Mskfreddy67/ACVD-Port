@@ -35,10 +35,10 @@ std::string lower_generic(const fs::path& p) {
 }
 std::set<std::string> g_overlaid;  // logged once each
 
-// Mods (community patches; the ACFA port's 0.7.6): files in the mods folder beside the saves
-// (players: Saved Games\ARMORED CORE 4\mods; development runs: <data>\mods) replace the game's
+// Mods (community patches): files in the mods folder beside the saves
+// (players: Saved Games\ARMORED CORE VERDICT DAY\mods; development runs: <data>\mods) replace the game's
 // files of the same path below PS3_GAME\USRDIR on the disc or below the game data's USRDIR
-// (/dev_hdd0/game/BLUS30027/USRDIR, where the game keeps its regulation and where the PS3 put the
+// (/dev_hdd0/game/BLUS31194/USRDIR, where the game keeps its regulation and where the PS3 put the
 // regulation updates it downloaded), for reading only: a regulation (regulation.bin, which the game
 // reads from its game data; the disc's param\regulation.bin is only the source of that copy and
 // stays the disc's, so a mod never ends up in the game's own files), a modded archive. The
@@ -99,7 +99,7 @@ fs::path mod_for(const std::vector<std::string>& parts, ModUse use, const fs::pa
       if (_stricmp(parts[k++].c_str(), p) != 0) return false;
     return true;
   };
-  size_t base = at({"dev_bdvd", "PS3_GAME", "USRDIR"}) ? 3 : at({"app_home"}) ? 1 : at({"dev_hdd0", "game", "BLUS30027", "USRDIR"}) ? 4 : 0;
+  size_t base = at({"dev_bdvd", "PS3_GAME", "USRDIR"}) ? 3 : at({"app_home"}) ? 1 : (at({"dev_hdd0", "game", "BLUS31194", "USRDIR"}) || at({"dev_hdd0", "game", "BLES01898", "USRDIR"})) ? 4 : 0;
   if (!base) return {};
   std::string rel;
   for (size_t k = base; k < parts.size(); ++k) rel += (rel.empty() ? "" : "/") + lower(parts[k]);

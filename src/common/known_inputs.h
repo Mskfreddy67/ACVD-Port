@@ -15,23 +15,16 @@ struct Known {
   u64 size;
 };
 
-// The game: ARMORED CORE 4, USA disc BLUS30027 (VERSION 01.01; no update exists in the inputs).
-constexpr const char* kTitleName = "ARMORED CORE 4";
-constexpr const char* kTitleId = "BLUS30027";
-constexpr const char* kDiscVersion = "01.01";
+// The game: ARMORED CORE: VERDICT DAY (USA disc BLUS31194 / EUR disc BLES01898).
+constexpr const char* kTitleName = "ARMORED CORE: VERDICT DAY";
+constexpr const char* kTitleId = "BLUS31194";
+constexpr const char* kDiscVersion = "01.00";
 
-// ACVD-Port: ARMORED CORE: VERDICT DAY title identifiers.
-// SHA-256 and size of ACVD's EBOOT.elf are discovered at import time (--game acvd) and written to
-// the manifest; they are NOT hardcoded here because we don't ship a known-good hash until at least
-// one verified dump has been tested.
 constexpr const char* kAcvdTitleIdUs  = "BLUS31194";  // North America
 constexpr const char* kAcvdTitleIdEu  = "BLES01898";  // Europe
 constexpr const char* kAcvdTitleName  = "ARMORED CORE: VERDICT DAY";
-// Known disc versions for ACVD (the import accepts any of these).
+// Known disc versions for ACVD.
 constexpr const char* kAcvdDiscVersions[] = {"01.00", "01.01", nullptr};
-extern const Known kEbootBin;  // PS3_GAME/USRDIR/EBOOT.BIN (disc)
-// The decrypted executable: RPCS3 writes EBOOT.elf next to EBOOT.BIN.
-extern const Known kEbootElf;
 
 // The system modules run natively, in load order (each gets the next fixed address slot), as
 // decrypted from PS3 system software 4.93: RPCS3 writes <name>.prx next to <name>.sprx in

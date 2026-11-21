@@ -19,7 +19,7 @@ namespace rt::ui {
 // A system dialog drawn in the game's picture (runtime/sysdialog.cpp keeps its state and input;
 // this module lays it out and draws it in the style of the PC SETTINGS screen).
 struct DialogView {
-  enum Kind { List, Question, Message, Text } kind = Message;
+  enum Kind { List, Question, Message, Text, Progress } kind = Message;
   std::string heading, text;                       // UTF-8; '\n' breaks the text's lines
   std::vector<std::string> rows, dates, details;   // List: one per row
   int focus = 0, scroll = 0;                       // List: the highlighted row, the first one shown

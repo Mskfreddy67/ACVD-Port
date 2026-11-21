@@ -16,9 +16,8 @@ namespace ac4::settings {
 namespace {
 
 const char* const kHead =
-    "# ARMORED CORE 4 (native port): settings, shared by the launcher and the game's\n"
-    "# PC SETTINGS screen (SYSTEM > PC SETTINGS in the game). Command-line options override them\n"
-    "# for one run.\n";
+    "# ARMORED CORE: VERDICT DAY (native port): settings file.\n"
+    "# Command-line options override them for one run.\n";
 
 const char* const kDisplay =
     "[display]\n"

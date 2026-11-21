@@ -12,7 +12,6 @@
 #include <mutex>
 
 #include "runtime/config.h"
-#include "runtime/game/menu_mouse.h"
 #include "runtime/gpu/d3d11_device.h"
 #include "runtime/gpu/input_hooks.h"
 #include "runtime/input.h"
@@ -160,7 +159,7 @@ u32 game_key(WPARAM vk, LPARAM lp) {
 
 HCURSOR client_cursor() {
   if (g_mouse_captured && !input_isolated()) return nullptr;
-  bool menu = sysdlg::shown() ? sysdlg::cursor_wanted() : game::menu_cursor_visible() || ui::is_open();
+  bool menu = sysdlg::shown() ? sysdlg::cursor_wanted() : ui::is_open();
   if (menu) {
     static HCURSOR cur = nullptr;
     static UINT cur_dpi = 0;
@@ -171,8 +170,7 @@ HCURSOR client_cursor() {
     }
     return cur;
   }
-  if (g_user_released && game::input_context() == game::InputContext::Gameplay) return LoadCursorW(nullptr, IDC_ARROW);
-  return nullptr;
+  return LoadCursorW(nullptr, IDC_ARROW);
 }
 
 void refresh_cursor() {
@@ -306,8 +304,7 @@ void set_client_size(int w, int h) {
 // Mouse look takes the mouse in gameplay while the window is in front, unless F1 gave it back or
 // a controller was used after the mouse (window thread).
 void capture_for_gameplay() {
-  if (g_mouse_captured || g_user_released || ui::is_open() || sysdlg::shown() || game::input_context() != game::InputContext::Gameplay ||
-      game::controller_used_last())
+  if (g_mouse_captured || g_user_released || ui::is_open() || sysdlg::shown())
     return;
   if (input_isolated() || GetForegroundWindow() == g_hwnd) set_mouse_capture(true);
 }
@@ -359,21 +356,10 @@ LRESULT CALLBACK wndproc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
       else if (overlay) ui::on_mouse_move(GET_X_LPARAM(lp), GET_Y_LPARAM(lp));
       POINT sp{GET_X_LPARAM(lp), GET_Y_LPARAM(lp)};
       ClientToScreen(h, &sp);
-      bool moved = sp.x != g_pointer.x || sp.y != g_pointer.y;
       g_pointer = sp;
-      if (!overlay && !g_mouse_captured && moved && !input_isolated()) {
-        bool shown = game::menu_cursor_visible();
-        game::menu_mouse_moved();  // in a menu the cursor appears at once
-        if (!shown && game::input_context() == game::InputContext::Menu) SetCursor(client_cursor());
-        capture_for_gameplay();  // the mouse moved in gameplay after a controller: mouse look takes it
-      }
       break;
     }
     case WM_MOUSEACTIVATE:
-      // The click that brings the window to the front only does that in menus and on the title or
-      // a movie (it would choose an item or skip the movie); in gameplay it takes the mouse.
-      if (LOWORD(lp) == HTCLIENT && GetForegroundWindow() != h && game::input_context() != game::InputContext::Gameplay)
-        return MA_ACTIVATEANDEAT;
       break;
     case WM_SETCURSOR:
       if (LOWORD(lp) == HTCLIENT) {
@@ -420,13 +406,6 @@ LRESULT CALLBACK wndproc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
       }
       if (!down && GetCapture() == h) ReleaseCapture();
       if (!g_mouse_captured && !input_isolated()) {
-        // In the game's menus and on its other screens the mouse stays free (cursor, clicks);
-        // in gameplay a click takes it for mouse look (isolated test runs never take the cursor).
-        if (game::input_context() != game::InputContext::Gameplay) {
-          if (button <= 1) game::menu_mouse_button(button, down);
-          if (down) SetCursor(client_cursor());
-          return msg == WM_XBUTTONDOWN || msg == WM_XBUTTONUP ? TRUE : 0;
-        }
         if (msg == WM_LBUTTONDOWN) {
           g_user_released = false;
           set_mouse_capture(true);
@@ -442,14 +421,6 @@ LRESULT CALLBACK wndproc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
       }
       if (overlay) {
         ui::on_wheel(GET_WHEEL_DELTA_WPARAM(wp));
-        return 0;
-      }
-      if (!g_mouse_captured && game::input_context() == game::InputContext::Menu) {
-        static int rest = 0;  // high-resolution wheels: notches of 120
-        rest += GET_WHEEL_DELTA_WPARAM(wp);
-        int notches = rest / WHEEL_DELTA;
-        rest -= notches * WHEEL_DELTA;
-        if (notches) game::menu_mouse_wheel(notches);
         return 0;
       }
       break;
@@ -496,7 +467,8 @@ LRESULT CALLBACK wndproc(HWND h, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_KEYUP:
     case WM_SYSKEYUP:
       input_key(game_key(wp, lp), false);  // releases always reach the key state (no stuck keys)
-      if (overlay && !dialog) ui::on_key(u32(wp), false, false);
+      if (dialog) sysdlg::on_key(u32(wp), false, false);
+      else if (overlay) ui::on_key(u32(wp), false, false);
       if (msg == WM_SYSKEYUP && wp != VK_F10 && wp != VK_MENU) break;
       return 0;
     case WM_CHAR:

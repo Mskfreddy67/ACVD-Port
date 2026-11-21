@@ -406,6 +406,8 @@ DialogLayout dialog_layout(const DialogView& v) {
   if (v.kind == DialogView::Message) {
     L.buttons_n = 1;
     L.buttons[0] = {x1 - kDlgButtonW, by0, x1, by1};
+  } else if (v.kind == DialogView::Progress) {
+    L.buttons_n = 0;
   } else {
     L.buttons_n = 2;
     L.buttons[0] = {x1 - 2 * kDlgButtonW - 10, by0, x1 - kDlgButtonW - 10, by1};
@@ -421,6 +423,10 @@ DialogLayout dialog_layout(const DialogView& v) {
     }
     case DialogView::Question:
     case DialogView::Message: L.text = {x0, L.rule_y + 16, x1, by0 - 10}; break;
+    case DialogView::Progress:
+      L.text = {x0, L.rule_y + 42, x1, L.rule_y + 110};
+      L.help = {x0, L.rule_y + 124, x1, by0 - 8};
+      break;
     case DialogView::Text: {
       L.text = {x0, L.rule_y + 12, x1, L.rule_y + 76};
       L.edit = {x0, L.rule_y + 84, x1, L.rule_y + 126};
@@ -1304,6 +1310,21 @@ void draw_dialog(const DialogView& v, u32 w, u32 h) {
     }
     case DialogView::Question:
     case DialogView::Message: wtext(wide(v.text), g_gfx.body, L.text, 0.86f); break;
+    case DialogView::Progress: {
+      wtext(wide(v.text), g_gfx.body, L.text, 0.86f);
+      constexpr int bars = 8;
+      const float bw = 14.0f, gap = 10.0f;
+      const float total = bars * bw + (bars - 1) * gap;
+      const float left = (L.help.x0 + L.help.x1 - total) * 0.5f;
+      const int phase = int(GetTickCount64() / 100) % bars;
+      for (int i = 0; i < bars; ++i) {
+        const float height = 18.0f + float((i + bars - phase) % bars) * 3.0f;
+        color(i == phase ? 0.78f : 0.30f, i == phase ? 1.0f : 0.65f);
+        dc->FillRectangle(D2D1::RectF(left + i * (bw + gap), L.help.y0 + 28,
+                                      left + i * (bw + gap) + bw, L.help.y0 + 28 + height), g_gfx.brush);
+      }
+      break;
+    }
     case DialogView::Text: {
       wtext(wide(v.text), g_gfx.body, L.text, 0.8f);
       const Box& e = L.edit;

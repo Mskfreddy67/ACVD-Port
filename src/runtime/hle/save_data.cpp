@@ -746,7 +746,28 @@ void cellSaveDataListSave2(ppu::Ctx& ctx) { list_or_fixed(ctx, Op::ListSave); }
 void cellSaveDataListLoad2(ppu::Ctx& ctx) { list_or_fixed(ctx, Op::ListLoad); }
 void cellSaveDataFixedSave2(ppu::Ctx& ctx) { list_or_fixed(ctx, Op::FixedSave); }
 void cellSaveDataFixedLoad2(ppu::Ctx& ctx) { list_or_fixed(ctx, Op::FixedLoad); }
-void cellSaveDataAutoSave2(ppu::Ctx& ctx) { automatic(ctx, Op::AutoSave); }
+void cellSaveDataAutoSave2(ppu::Ctx& ctx) {
+  const std::string dir = ctx.r[4] ? read_cstr(u32(ctx.r[4]), 32) : std::string();
+  // Verdict Day asks the system to confirm creation of its initial GAME20C8 pilot profile.
+  // AutoSave2 itself is normally silent; show this title-specific first-save prompt and the
+  // system progress overlay only for that initial Setup save.
+  if (cfg().title_id == "BLUS31194" && dir == "BLUS31194GAME20C8") {
+    const fs::path root = savedata_root();
+    std::error_code ec;
+    const bool exists = !root.empty() && fs::exists(root / dir, ec);
+    if (!exists && !sysdlg::confirm("Finish Setup?\n\nSave the pilot profile?")) {
+      ctx.r[3] = RET_CANCEL;
+      return;
+    }
+    struct ProgressGuard {
+      ~ProgressGuard() { sysdlg::end_progress(); }
+    } guard;
+    sysdlg::begin_progress("Saving pilot profile...\nPlease do not turn off the system.");
+    automatic(ctx, Op::AutoSave);
+    return;
+  }
+  automatic(ctx, Op::AutoSave);
+}
 void cellSaveDataAutoLoad2(ppu::Ctx& ctx) { automatic(ctx, Op::AutoLoad); }
 void cellSaveDataListSave(ppu::Ctx& ctx) { list_or_fixed(ctx, Op::ListSave, false); }
 void cellSaveDataListLoad(ppu::Ctx& ctx) { list_or_fixed(ctx, Op::ListLoad, false); }

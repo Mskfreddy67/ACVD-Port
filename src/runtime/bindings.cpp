@@ -15,14 +15,17 @@
 
 #include "common/ini.h"
 #include "common/settings_file.h"
-#include "runtime/game/frame_policy.h"
-#include "runtime/game/key_assign.h"
-#include "runtime/game/menu_mouse.h"
 #include "runtime/input.h"
 #include "runtime/log.h"
 
 namespace rt::bindings {
 namespace {
+
+enum KeySlot : u32 {
+  kSlotMoveForward = 0, kSlotMoveBack, kSlotStrafeRight, kSlotStrafeLeft, kSlotTurnRight, kSlotTurnLeft, kSlotLookUp, kSlotLookDown,
+  kSlotResetView, kSlotLock, kSlotBoost, kSlotOverBoost, kSlotQuickBoost, kSlotRightWeapon, kSlotLeftWeapon, kSlotShoulder,
+  kSlotSwitchRight, kSlotSwitchLeft, kSlotPause, kSlotCount
+};
 
 // cellPad digital words.
 constexpr u16 SELECT = 0x1, L3 = 0x2, R3 = 0x4, START = 0x8, UP = 0x10, RIGHT = 0x20, DOWN = 0x40, LEFT = 0x80;
@@ -38,10 +41,8 @@ struct Control {
   u16 bit;
   int axis;       // 0 lx, 1 ly, 2 rx, 3 ry
   bool positive;
-  int slot;       // the action it stands for in missions (rt::game::KeySlot, the TYPE A meaning of
-                  // the button or stick direction; -1: the button itself); Kind::Macro: the Macro
+  int slot;       // the action it stands for in missions
 };
-using namespace rt::game;
 const Control kControls[] = {
     {"lstick_up", Kind::Axis, 0, 1, false, kSlotMoveForward},     {"lstick_down", Kind::Axis, 0, 1, true, kSlotMoveBack},
     {"lstick_left", Kind::Axis, 0, 0, false, kSlotStrafeLeft},    {"lstick_right", Kind::Axis, 0, 0, true, kSlotStrafeRight},
@@ -69,37 +70,6 @@ struct PadElem {
   int axis = 0;
   bool positive = false;
 };
-PadElem elem_of_code(u8 code) {
-  static const PadElem kSticks[8] = {
-      {true, Kind::Axis, 0, 1, false}, {true, Kind::Axis, 0, 1, true}, {true, Kind::Axis, 0, 0, true}, {true, Kind::Axis, 0, 0, false},
-      {true, Kind::Axis, 0, 3, false}, {true, Kind::Axis, 0, 3, true}, {true, Kind::Axis, 0, 2, true}, {true, Kind::Axis, 0, 2, false},
-  };
-  if (code < 8) return kSticks[code];
-  switch (code) {
-    case 0x08: return {true, Kind::D2, CIRCLE};
-    case 0x09: return {true, Kind::D2, TRIANGLE};
-    case 0x0a: return {true, Kind::D2, SQUARE};
-    case 0x0b: return {true, Kind::D2, CROSS};
-    case 0x0c: return {true, Kind::D2, L1};
-    case 0x0d: return {true, Kind::D2, L2};
-    case 0x0e: return {true, Kind::D2, R1};
-    case 0x0f: return {true, Kind::D2, R2};
-    case 0x10: return {true, Kind::D1, L3};
-    case 0x11: return {true, Kind::D1, R3};
-    case 0x12: return {true, Kind::D1, SELECT};
-    case 0x13: return {true, Kind::D1, START};
-    // The D-pad in the stick codes' order (the operator's button bits 0x1, 0x2, 0x8, 0x4: the
-    // Xbox 360 layout of up, down, right, left; GAME_NOTES "Input mechanics measured").
-    case 0x14: return {true, Kind::D1, UP};
-    case 0x15: return {true, Kind::D1, DOWN};
-    case 0x16: return {true, Kind::D1, RIGHT};
-    case 0x17: return {true, Kind::D1, LEFT};
-    default: return {};  // none (0xfe)
-  }
-}
-// The TYPE A assignment: the meaning of the buttons when the game's is not known yet.
-constexpr u8 kDefaultCodes[kSlotCount] = {0x00, 0x01, 0x02, 0x03, 0x06, 0x07, 0x04, 0x05, 0x11, 0x10,
-                                          0x0d, 0x09, 0x0f, 0x0b, 0x0a, 0x08, 0x0e, 0x0c, 0x13};
 
 struct KeyName {
   const char* name;
@@ -126,20 +96,6 @@ std::atomic<double> g_sensitivity_x{1.0}, g_sensitivity_y{1.0};
 std::atomic<bool> g_invert_x{false}, g_invert_y{false};
 std::atomic<MouseMode> g_mouse_mode{MouseMode::Stick};
 std::chrono::steady_clock::time_point g_wheel_up_until, g_wheel_down_until;
-
-// Key combinations (sample(), on the thread reading the pad). Times in seconds from the first data
-// the game got with the key down: the buttons are held while the key is, and at least kMinHold,
-// so a tap still reaches the game as a combination.
-constexpr double kMinHold = 0.15;
-struct MacroState {
-  bool down = false;  // a bound input is down (as of the last delivered sample)
-  double t0 = -1;     // the combination's start (-1: idle)
-};
-MacroState g_macro[kMacroCount];
-double now_s() {
-  using namespace std::chrono;
-  return duration<double>(steady_clock::now().time_since_epoch()).count();
-}
 
 std::string trim(std::string s) {
   while (!s.empty() && std::isspace(u8(s.back()))) s.pop_back();
@@ -317,97 +273,36 @@ PadOut sample(bool deliver) {
   };
   bool neg[4] = {}, pos[4] = {};
   std::lock_guard lk(g_mu);
-  // In the game's menus an input listed in [menu] drives its menu control only; on other screens
-  // than gameplay (title, movies, the mission report) the menu's confirm and back keys press Start,
-  // the confirm keys then Cross unless a menu opened (game::cross_after_start). An input keeps the
-  // meaning it had when it went down until it is released: Escape closing the pause menu (Circle
-  // there) does not become Start once gameplay resumes under the still pressed key.
-  auto in_menu = [&](u16 bit, u32 code) {
-    for (size_t c = 0; c < kControlCount; ++c)
-      if (kControls[c].kind == Kind::D2 && kControls[c].bit == bit && std::find(g_menu[c].begin(), g_menu[c].end(), code) != g_menu[c].end())
-        return true;
-    return false;
-  };
-  auto confirm_or_back = [&](u32 code) { return in_menu(CROSS, code) || in_menu(CIRCLE, code); };
-  const game::InputContext where = game::input_context();
-  static std::vector<std::pair<u32, game::InputContext>> held;  // inputs down, with their context at the press
-  auto context_of = [&](u32 code) {
-    for (auto& [c, at] : held)
-      if (c == code) return at;
-    held.push_back({code, where});
-    // Start with Cross at once would open the title's menu and choose its first entry in the same
-    // moment (LOAD GAME: straight to the save list); Cross comes later, when no menu opened.
-    if (where == game::InputContext::Screen && in_menu(CROSS, code) && !game::movie_playing()) game::cross_after_start();
-    if (where == game::InputContext::Menu && code < kMouse) game::note_menu_key();  // keys, not the mouse's buttons
-    return where;
-  };
-  held.erase(std::remove_if(held.begin(), held.end(), [&](const auto& h) { return !down(h.first); }), held.end());
-  auto in_menu_layer = [&](u32 code) {
-    for (const auto& m : g_menu)
-      if (std::find(m.begin(), m.end(), code) != m.end()) return true;
-    return false;
-  };
-  // Whether input `code` (down) drives control c in the context it was pressed in.
-  auto drives = [&](u32 code, size_t c) {
-    game::InputContext at = context_of(code);
-    bool game = std::find(g_bind[c].begin(), g_bind[c].end(), code) != g_bind[c].end();
-    if (at == game::InputContext::Screen) return game && !confirm_or_back(code);  // Start (below)
-    if (at != game::InputContext::Menu) return game;
-    return std::find(g_menu[c].begin(), g_menu[c].end(), code) != g_menu[c].end() || (game && !in_menu_layer(code));
-  };
-  // In missions a control stands for its action (Control::slot) and presses the button or stick
-  // direction the game's assignment gives that action (TYPE A / TYPE B / CUSTOM A / CUSTOM B);
-  // elsewhere the buttons themselves.
-  u8 codes[kSlotCount];
-  if (!game::key_assignment(codes)) std::memcpy(codes, kDefaultCodes, sizeof codes);
   auto apply = [&](const PadElem& e) {
     if (!e.valid) return;
     if (e.kind == Kind::D1) o.d1 |= e.bit;
     else if (e.kind == Kind::D2) o.d2 |= e.bit;
     else (e.positive ? pos : neg)[e.axis] = true;
   };
-  auto action = [&](u32 slot) { return elem_of_code(codes[slot]); };
+
   for (size_t c = 0; c < kControlCount; ++c) {
     const Control& k = kControls[c];
     if (k.kind == Kind::Macro) continue;
-    bool on = false, mission = false;
-    auto check = [&](u32 code) {
-      if (!down(code) || !drives(code, c)) return;
-      on = true;
-      mission = mission || context_of(code) == game::InputContext::Gameplay;
+    bool on = false;
+    // Menu shortcuts take precedence globally. Otherwise a key such as Enter, bound to menu
+    // CROSS and keyboard SELECT, emits both pad bits in menus (and the game can reject the chord).
+    auto menu_key = [&](u32 code) {
+      for (const auto& menu_control : g_menu)
+        if (std::find(menu_control.begin(), menu_control.end(), code) != menu_control.end()) return true;
+      return false;
     };
-    for (u32 code : g_bind[c]) check(code);
-    for (u32 code : g_menu[c]) check(code);
-    // Screens without a menu (title, movies, the report): the menu's confirm and back keys press Start.
-    if (k.kind == Kind::D2 && (k.bit == CROSS || k.bit == CIRCLE))
-      for (u32 code : g_menu[c])
-        if (down(code) && context_of(code) == game::InputContext::Screen) o.d1 |= START;
+    for (u32 code : g_bind[c]) {
+      if (!menu_key(code) && down(code)) { on = true; break; }
+    }
+    if (!on) {
+      for (u32 code : g_menu[c]) {
+        if (down(code)) { on = true; break; }
+      }
+    }
     if (!on) continue;
-    apply(mission && k.slot >= 0 ? action(u32(k.slot)) : PadElem{true, k.kind, k.bit, k.axis, k.positive});
+    apply(PadElem{true, k.kind, k.bit, k.axis, k.positive});
   }
-  // Key combinations, in missions only: both weapon switches and the weapon's use button.
-  const double t = now_s();
-  for (size_t c = 0; c < kControlCount; ++c) {
-    const Control& k = kControls[c];
-    if (k.kind != Kind::Macro) continue;
-    MacroState& m = g_macro[k.slot];
-    bool held = false;
-    for (u32 code : g_bind[c])
-      if (down(code) && context_of(code) == game::InputContext::Gameplay) held = true;
-    if (deliver) {
-      if (held && !m.down && m.t0 < 0) m.t0 = t;  // a new press starts the combination
-      m.down = held;
-    }
-    if (m.t0 < 0) continue;
-    const double e = t - m.t0;
-    if (held || e < kMinHold) {
-      apply(action(kSlotSwitchRight));
-      apply(action(kSlotSwitchLeft));
-      apply(action(k.slot == kPurgeRight ? kSlotRightWeapon : k.slot == kPurgeLeft ? kSlotLeftWeapon : kSlotShoulder));
-    } else if (deliver) {
-      m.t0 = -1;
-    }
-  }
+
   int* axes[4] = {&o.lx, &o.ly, &o.rx, &o.ry};
   for (int a = 0; a < 4; ++a)
     if (neg[a] || pos[a]) *axes[a] = neg[a] && pos[a] ? 128 : neg[a] ? 0 : 255;
@@ -416,34 +311,27 @@ PadOut sample(bool deliver) {
 
 std::string mission_button(size_t c) {
   if (c >= kControlCount || kControls[c].slot < 0) return "";
-  u8 codes[kSlotCount];
-  if (!game::key_assignment(codes)) return "";
-  auto name = [&](u32 slot) -> std::string {
-    PadElem e = elem_of_code(codes[slot]);
-    if (!e.valid) return "NONE";
-    if (e.kind == Kind::Axis) {
-      static const char* const kAxis[4][2] = {{"L STICK LEFT", "L STICK RIGHT"}, {"L STICK UP", "L STICK DOWN"},
-                                              {"R STICK LEFT", "R STICK RIGHT"}, {"R STICK UP", "R STICK DOWN"}};
-      return kAxis[e.axis][e.positive ? 1 : 0];
-    }
-    struct Name {
-      Kind kind;
-      u16 bit;
-      const char* name;
-    };
-    static const Name kNames[] = {{Kind::D2, CROSS, "CROSS"}, {Kind::D2, CIRCLE, "CIRCLE"}, {Kind::D2, SQUARE, "SQUARE"},
-                                  {Kind::D2, TRIANGLE, "TRIANGLE"}, {Kind::D2, L1, "L1"}, {Kind::D2, L2, "L2"}, {Kind::D2, R1, "R1"},
-                                  {Kind::D2, R2, "R2"}, {Kind::D1, L3, "L3"}, {Kind::D1, R3, "R3"}, {Kind::D1, START, "START"},
-                                  {Kind::D1, SELECT, "SELECT"}, {Kind::D1, UP, "D-PAD UP"}, {Kind::D1, DOWN, "D-PAD DOWN"},
-                                  {Kind::D1, LEFT, "D-PAD LEFT"}, {Kind::D1, RIGHT, "D-PAD RIGHT"}};
-    for (const Name& n : kNames)
-      if (n.kind == e.kind && n.bit == e.bit) return n.name;
-    return "";
-  };
   const Control& k = kControls[c];
-  if (k.kind != Kind::Macro) return name(u32(k.slot));
-  u32 use = k.slot == kPurgeRight ? kSlotRightWeapon : k.slot == kPurgeLeft ? kSlotLeftWeapon : kSlotShoulder;
-  return name(kSlotSwitchRight) + " + " + name(kSlotSwitchLeft) + " + " + name(use);
+  if (k.kind == Kind::D1) {
+    if (k.bit == START) return "START";
+    if (k.bit == SELECT) return "SELECT";
+    if (k.bit == L3) return "L3";
+    if (k.bit == R3) return "R3";
+    if (k.bit == UP) return "D-PAD UP";
+    if (k.bit == DOWN) return "D-PAD DOWN";
+    if (k.bit == LEFT) return "D-PAD LEFT";
+    if (k.bit == RIGHT) return "D-PAD RIGHT";
+  } else if (k.kind == Kind::D2) {
+    if (k.bit == CROSS) return "CROSS";
+    if (k.bit == CIRCLE) return "CIRCLE";
+    if (k.bit == SQUARE) return "SQUARE";
+    if (k.bit == TRIANGLE) return "TRIANGLE";
+    if (k.bit == L1) return "L1";
+    if (k.bit == R1) return "R1";
+    if (k.bit == L2) return "L2";
+    if (k.bit == R2) return "R2";
+  }
+  return "";
 }
 
 MouseSettings mouse() {

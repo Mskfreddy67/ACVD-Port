@@ -2,9 +2,6 @@
 
 namespace ac4::inputs {
 
-const Known kEbootBin = {"EBOOT.BIN", "166f4a6b024f0abe6349b7cf481c95f445f6af31f3e2846fa0523d2fd8db2325", 17244256};
-const Known kEbootElf = {"EBOOT.elf", "0fd1e2ee4dbc599874fabccd596f922904955d8f5c1dbd92a34101ac930daaa1", 17241824};
-
 const char* const kModules[kModuleCount] = {"libsre",  "libsail", "libpamf",       "libdmux",   "libdmuxpamf",
                                             "libadec", "libvpost", "libatrac3plus", "libatxdec", "libat3dec"};
 

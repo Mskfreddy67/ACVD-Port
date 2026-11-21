@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <filesystem>
+#include <mutex>
 #include <set>
 #include <unordered_map>
 
@@ -14,6 +15,7 @@
 #include "ppu/ppu_recomp.h"
 #include "runtime/config.h"
 #include "runtime/log.h"
+#include "runtime/lv2/lv2.h"
 #include "runtime/spu/spu.h"
 #include "spu/spu_gen.h"
 #include "spu/spu_isa.h"
@@ -158,6 +160,8 @@ bool interpret_block(Thread& t, u32 budget) {
   v128* g = t.gpr;
   for (u32 n = 0; n < budget; ++n) {
     if (t.stop_request.load(std::memory_order_relaxed)) return false;
+    t.total_inst_count.fetch_add(1, std::memory_order_relaxed);
+    t.last_exec_time_us.store(lv2::system_time_us(), std::memory_order_relaxed);
     const u32 pc = t.pc;
     const u32 w = __builtin_bswap32(*reinterpret_cast<const u32*>(t.ls + (pc & 0x3fffc)));
     const Op op = ::spu::decode(w);
@@ -232,8 +236,19 @@ bool interpret_block(Thread& t, u32 budget) {
         next = t.pc;  // stop_and_signal sets the resume pc
         break;
       case Op::UNK:
-      default:
+      default: {
+        static std::set<u32> s_unimpl_op;
+        static std::mutex s_mu;
+        bool first = false;
+        {
+          std::lock_guard lk(s_mu);
+          first = s_unimpl_op.insert(w >> 21).second;
+        }
+        if (first) {
+          LOG_E("spu", "SPU %s: unimplemented SPU opcode 0x%08x (op 0x%x) at pc 0x%05x", t.name.c_str(), w, u32(op), pc);
+        }
         ::spu::ops::halt(t, "unknown instruction", pc, w);
+      }
     }
     t.pc = next & 0x3fffc;
     if (next != pc + 4) return true;
@@ -258,16 +273,24 @@ void interpret(Thread& t) {
       // processors these loops took most of the processor time from the PPU threads that give
       // them work; run 20261024-170850).
       if (t.int_enabled && parking() && self_branch(t, t.pc)) {
+        t.spu_state.store(2, std::memory_order_relaxed);
         idle_until_event(t);
+        t.spu_state.store(1, std::memory_order_relaxed);
+        t.last_exec_time_us.store(lv2::system_time_us(), std::memory_order_relaxed);
         continue;
       }
     } else if (parking() && self_branch(t, t.pc)) {  // interrupts disabled: only a stop ends it
+      t.spu_state.store(2, std::memory_order_relaxed);
       park_self_branch(t);
+      t.spu_state.store(1, std::memory_order_relaxed);
+      t.last_exec_time_us.store(lv2::system_time_us(), std::memory_order_relaxed);
       continue;
     }
     const spu_gen::Chunk* c = lookup(t, t.pc);
+    t.last_exec_time_us.store(lv2::system_time_us(), std::memory_order_relaxed);
     if (c) {
       ++t.compiled_runs;
+      t.total_inst_count.fetch_add(100, std::memory_order_relaxed);
       if (!c->fn(t)) return;
     } else {
       ++t.interp_blocks;

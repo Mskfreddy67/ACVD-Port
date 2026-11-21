@@ -7,6 +7,8 @@
 
 #include "runtime/config.h"
 #include "runtime/profiler.h"
+#include "runtime/ppu_thread.h"
+#include "runtime/spurs_jq_diag.h"
 #include "runtime/lv2/lv2.h"
 #include "runtime/lv2/sync.h"
 #include "runtime/reservation.h"
@@ -528,6 +530,61 @@ void spu_log_second(double now) {
       }
     }
   });
+
+  // Post-CROSS 20s diagnostics for group 0x4000100 (DLSpursManagerCellSpursKernelGroup)
+  uint64_t cross_t = rt::g_cross_after_osk_time_us.load(std::memory_order_relaxed);
+  if (cross_t != 0) {
+    uint64_t now_us = system_time_us();
+    if (now_us >= cross_t && (now_us - cross_t) <= 20000000ull) {
+      double elapsed = double(now_us - cross_t) / 1e6;
+      g_spu_groups.for_each([&](u32 gid, spu::Group& g) {
+        if (gid == 0x4000100 || g.name == "DLSpursManagerCellSpursKernelGroup") {
+          for (size_t i = 0; i < g.threads.size(); ++i) {
+            auto& t = g.threads[i];
+            if (!t) continue;
+            u32 pc = t->pc;
+            int st = t->spu_state.load(std::memory_order_relaxed);
+            const char* st_str = (st == 1) ? "RUNNING" : (st == 2) ? "WAIT_EVENT" : (st == 3) ? "HALTED" : "STOPPED";
+            uint64_t last_exec = t->last_exec_time_us.load(std::memory_order_relaxed);
+            double sec_since_exec = last_exec ? double(now_us - last_exec) / 1e6 : -1.0;
+
+            uint64_t cur_inst = t->total_inst_count.load(std::memory_order_relaxed);
+            static uint64_t s_prev_inst[32] = {};
+            uint64_t inst_sec = (i < 32 && s_prev_inst[i]) ? (cur_inst - s_prev_inst[i]) : 0;
+            if (i < 32) s_prev_inst[i] = cur_inst;
+
+            // CPU time via GetThreadTimes
+            double cpu_pct = 0.0;
+            if (t->host) {
+              FILETIME ct, et, kt, ut;
+              if (GetThreadTimes(HANDLE(t->host), &ct, &et, &kt, &ut)) {
+                uint64_t cur_cpu_100ns = (uint64_t(kt.dwHighDateTime) << 32 | kt.dwLowDateTime) +
+                                         (uint64_t(ut.dwHighDateTime) << 32 | ut.dwLowDateTime);
+                static uint64_t s_prev_cpu[32] = {};
+                uint64_t delta_cpu_100ns = (i < 32 && s_prev_cpu[i]) ? (cur_cpu_100ns - s_prev_cpu[i]) : 0;
+                if (i < 32) s_prev_cpu[i] = cur_cpu_100ns;
+                cpu_pct = double(delta_cpu_100ns) / 100000.0;
+              }
+            }
+
+            std::string ch_info = ac4::strprintf("WrIntrMbox=%llu(0x%x) WrMbox=%llu(0x%x) RdInMbox=%llu(0x%x) EvStat=%llu(0x%x) EvMask=%llu(0x%x) WrEvMask=%llu(0x%x) WrEvAck=%llu(0x%x)",
+              (unsigned long long)t->ch_stat[30].writes.load(), t->ch_stat[30].last_val.load(),
+              (unsigned long long)t->ch_stat[28].writes.load(), t->ch_stat[28].last_val.load(),
+              (unsigned long long)t->ch_stat[29].reads.load(), t->ch_stat[29].last_val.load(),
+              (unsigned long long)t->ch_stat[0].reads.load(), t->ch_stat[0].last_val.load(),
+              (unsigned long long)t->ch_stat[11].reads.load(), t->ch_stat[11].last_val.load(),
+              (unsigned long long)t->ch_stat[1].writes.load(), t->ch_stat[1].last_val.load(),
+              (unsigned long long)t->ch_stat[2].writes.load(), t->ch_stat[2].last_val.load());
+
+            LOG_I("spu", "spu-state: thread %zu ('%s'): pc=0x%05x, state=%s, last_event='%s' (post-CROSS +%.1fs, last_exec=%.2fs ago, CPU=%.1f%%, inst/s=%llu, %s)",
+                  i, t->name.c_str(), pc, st_str,
+                  t->last_event_str.empty() ? "none" : t->last_event_str.c_str(),
+                  elapsed, sec_since_exec, cpu_pct, (unsigned long long)inst_sec, ch_info.c_str());
+          }
+        }
+      });
+    }
+  }
 }
 
 // Per-thread event port connections (SPU -> PPU queues) and bound queues (PPU -> SPU).
@@ -615,6 +672,27 @@ s32 sys_spu_thread_group_disconnect_event(u32 id, u32 et) {
 }
 // Connects the lowest port in `req` that is free on every thread of the group to queue `eq`.
 s32 sys_spu_thread_group_connect_event_all_threads(u32 id, u32 eq, u64 req, Ptr<u8> spup) {
+  PpuThread* cur_t = cur_thread();
+  if (cur_t && cur_t->name == "FileMan") {
+    static std::atomic<uint32_t> s_fileman_conn_count{0};
+    uint32_t cnt = ++s_fileman_conn_count;
+    if (cnt == 1 || cnt == 2 || cnt == 3 || (cnt % 100 == 0)) {
+      u32 lr = cur_t->call_lr ? cur_t->call_lr : u32(cur_t->ctx.lr);
+      u32 sp = cur_t->call_sp ? cur_t->call_sp : u32(cur_t->ctx.r[1]);
+      std::string frames = ac4::strprintf(" [0] 0x%08x (LR)", lr);
+      u32 cur_sp = sp;
+      for (int depth = 1; depth <= 12 && cur_sp >= 0x00010000u && cur_sp < 0xF0000000u && !(cur_sp & 7); ++depth) {
+        u32 next_sp = u32(ppu::r64(cur_sp));
+        if (!next_sp) next_sp = ppu::r32(cur_sp);
+        if (next_sp <= cur_sp || next_sp >= 0xF0000000u) break;
+        u32 ret_addr = u32(ppu::r64(next_sp + 16));
+        if (!ret_addr) ret_addr = ppu::r32(next_sp + 16);
+        frames += ac4::strprintf(" [%d] 0x%08x", depth, ret_addr);
+        cur_sp = next_sp;
+      }
+      LOG_I("hle", "sys_spu_thread_group_connect_event_all_threads #%u: guest backchain:%s", cnt, frames.c_str());
+    }
+  }
   auto g = g_spu_groups.get(id);
   if (!g || !event_queue_exists(eq)) return CELL_ESRCH;
   if (!req) return CELL_EINVAL;

@@ -444,6 +444,11 @@ s32 sys_event_queue_create(Ptr<be32> id, Ptr<AttrQueue> attr, u64 key, s32 size)
   q->key = key;
   q->name = name8(attr->name);
   *id = g_queue.add(q);
+  PpuThread* cur_t = cur_thread();
+  if (cur_t && cur_t->name == "FileMan") {
+    LOG_I("hle", "FileMan: sys_event_queue_create('%s', size=%d, type=%d, key=0x%llx) -> queue 0x%x",
+          q->name.c_str(), size, q->type, (unsigned long long)key, u32(*id));
+  }
   LOG_D("lv2", "sys_event_queue_create '%s' size %d type %d -> 0x%x", q->name.c_str(), size, q->type, u32(*id));
   return CELL_OK;
 }
@@ -457,20 +462,43 @@ s32 sys_event_queue_destroy(u32 id, s32 mode) {
   }
   q->cv.notify_all();
   g_queue.remove(id);
+  PpuThread* cur_t = cur_thread();
+  if (cur_t && cur_t->name == "FileMan") {
+    LOG_I("hle", "FileMan: sys_event_queue_destroy(queue 0x%x, mode %d) -> CELL_OK", id, mode);
+  }
   return CELL_OK;
 }
 s32 sys_event_queue_receive(ppu::Ctx& ctx, u32 id, u32 dummy, u64 timeout) {
+  PpuThread* cur_t = cur_thread();
+  bool is_fileman = cur_t && (cur_t->name == "FileMan");
   auto q = g_queue.get(id);
-  if (!q) return CELL_ESRCH;
-  if (q->type != 1) return CELL_EINVAL;
+  if (!q) {
+    if (is_fileman) LOG_I("hle", "FileMan: sys_event_queue_receive(queue 0x%x, timeout %llu) -> CELL_ESRCH", id, (unsigned long long)timeout);
+    return CELL_ESRCH;
+  }
+  if (q->type != 1) {
+    if (is_fileman) LOG_I("hle", "FileMan: sys_event_queue_receive(queue 0x%x, timeout %llu) -> CELL_EINVAL", id, (unsigned long long)timeout);
+    return CELL_EINVAL;
+  }
   std::unique_lock lk(q->m);
   ++q->waiters;
   bool ok = wait_us(q->cv, lk, timeout, [&] { return !q->events.empty() || q->destroyed; });
   --q->waiters;
-  if (q->destroyed) return CELL_ECANCELED;
-  if (!ok) return CELL_ETIMEDOUT;
+  if (q->destroyed) {
+    if (is_fileman) LOG_I("hle", "FileMan: sys_event_queue_receive(queue 0x%x) -> CELL_ECANCELED (destroyed)", id);
+    return CELL_ECANCELED;
+  }
+  if (!ok) {
+    if (is_fileman) LOG_I("hle", "FileMan: sys_event_queue_receive(queue 0x%x '%s', timeout %llu) -> CELL_ETIMEDOUT (left=%zu, waiters=%d)",
+                          id, q->name.c_str(), (unsigned long long)timeout, q->events.size(), q->waiters);
+    return CELL_ETIMEDOUT;
+  }
   Event e = q->events.front();
   q->events.pop_front();
+  if (is_fileman) {
+    LOG_I("hle", "FileMan: sys_event_queue_receive(queue 0x%x '%s') -> OK: src=0x%llx, d1=0x%llx, d2=0x%llx, d3=0x%llx (%zu left)",
+          id, q->name.c_str(), (unsigned long long)e.source, (unsigned long long)e.d1, (unsigned long long)e.d2, (unsigned long long)e.d3, q->events.size());
+  }
   LOG_D("lv2", "event queue 0x%x '%s': received (0x%llx, 0x%llx, 0x%llx, 0x%llx), %zu left", id, q->name.c_str(),
         (unsigned long long)e.source, (unsigned long long)e.d1, (unsigned long long)e.d2, (unsigned long long)e.d3, q->events.size());
   ctx.r[4] = e.source;
@@ -495,6 +523,10 @@ s32 sys_event_queue_tryreceive(u32 id, u32 arr, s32 size, Ptr<be32> number) {
     ppu::w64(a + 24, e.d3);
   }
   *number = u32(n);
+  PpuThread* cur_t = cur_thread();
+  if (cur_t && cur_t->name == "FileMan") {
+    LOG_I("hle", "FileMan: sys_event_queue_tryreceive(queue 0x%x, size %d) -> count=%d, res=0x0", id, size, n);
+  }
   return CELL_OK;
 }
 s32 sys_event_queue_drain(u32 id) {
@@ -551,7 +583,13 @@ s32 sys_event_port_send(u32 port, u64 d1, u64 d2, u64 d3) {
     src = p->name ? p->name : (u64(0x10000) << 32) | port;  // default source: port id
   }
   if (!qid) return CELL_ENOTCONN;
-  return event_queue_send(qid, src, d1, d2, d3);
+  s32 r = event_queue_send(qid, src, d1, d2, d3);
+  PpuThread* cur_t = cur_thread();
+  if (cur_t && cur_t->name == "FileMan") {
+    LOG_I("hle", "FileMan: sys_event_port_send(port 0x%x -> queue 0x%x, d1=0x%llx, d2=0x%llx, d3=0x%llx) -> 0x%x",
+          port, qid, (unsigned long long)d1, (unsigned long long)d2, (unsigned long long)d3, r);
+  }
+  return r;
 }
 
 hle::SyscallTable s_sync({

@@ -6,6 +6,7 @@
 
 #include "runtime/hle.h"
 #include "runtime/log.h"
+#include "runtime/lv2/lv2.h"
 #include "runtime/lv2/sync.h"
 #include "runtime/reservation.h"
 #include "runtime/spu/spu.h"
@@ -21,10 +22,24 @@ namespace rt::spu {
 constexpr u64 SYS_SPU_THREAD_EVENT_USER_KEY = 0xFFFFFFFF53505501ull;
 
 void run_thread(Thread& t) {
+  t.spu_state.store(1, std::memory_order_release);
+  t.last_exec_time_us.store(lv2::system_time_us(), std::memory_order_release);
+  if (t.group && (t.group->id == 0x4000100 || t.group->name == "DLSpursManagerCellSpursKernelGroup")) {
+    LOG_I("spu", "SPU %s (group 0x%x) STARTED at pc=0x%05x", t.name.c_str(), t.group->id, t.pc);
+  }
   try {
     interpret(t);
   } catch (const std::exception& e) {
+    t.spu_state.store(3, std::memory_order_release);
     LOG_E("spu", "SPU %s aborted: %s", t.name.c_str(), e.what());
+    return;
+  }
+  t.spu_state.store(0, std::memory_order_release);
+  if (t.group && (t.group->id == 0x4000100 || t.group->name == "DLSpursManagerCellSpursKernelGroup")) {
+    uint64_t last_t = t.last_exec_time_us.load();
+    double sec_since = last_t ? double(lv2::system_time_us() - last_t) / 1e6 : -1.0;
+    LOG_I("spu", "SPU %s (group 0x%x) STOPPED/HALTED at pc=0x%05x (total inst=%llu, last_code=%.2fs ago)",
+          t.name.c_str(), t.group->id, t.pc, (unsigned long long)t.total_inst_count.load(), sec_since);
   }
 }
 
@@ -78,6 +93,16 @@ void write_out_intr_mbox(Thread& t, u32 value) {
     u32 q = lv2::spu_port_queue(t.id, spup);
     s32 r = q ? lv2::event_queue_send(q, SYS_SPU_THREAD_EVENT_USER_KEY, t.id, (u64(spup) << 32) | (value & 0x00ffffff), data)
               : CELL_ENOTCONN;
+    if (t.group && (t.group->id == 0x4000100 || t.group->name == "DLSpursManagerCellSpursKernelGroup")) {
+      LOG_I("spu", "SPU %s (group 0x%x): %s port 0x%02x (spup=%u, data0=0x%06x, data1=0x%08x) -> queue 0x%x, accepted=%s (ret=0x%x)",
+            t.name.c_str(), t.group->id,
+            code < 64 ? "sys_spu_thread_send_event" : "sys_spu_thread_throw_event",
+            spup, spup, value & 0x00ffffff, data, q,
+            (r == CELL_OK ? "YES" : "NO"), u32(r));
+    }
+    t.last_event_str = ac4::strprintf("%s port 0x%x (d0=0x%x, d1=0x%x) -> q 0x%x (%s)",
+                                       code < 64 ? "send_event" : "throw_event", spup, value & 0x00ffffff, data, q,
+                                       r == CELL_OK ? "OK" : "ERR");
     LOG_D("spu", "SPU %s: %s port %u (0x%06x, 0x%08x) -> queue 0x%x: 0x%x", t.name.c_str(), code < 64 ? "send_event" : "throw_event",
           spup, value & 0x00ffffff, data, q, u32(r));
     if (code < 64) respond(t, {u32(r)});

@@ -4,6 +4,7 @@
 #include <windows.h>
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 
 #include "common/file.h"
@@ -315,6 +316,14 @@ void icall(Ctx& ctx, u32 target) {
       imp = &g_imports[i];
     }
     ++imp->calls;
+
+    if (imp->module == "sys_io" && imp->name == "cellPadGetData") {
+      static std::atomic<unsigned> logged_pad_calls{0};
+      unsigned n = logged_pad_calls.fetch_add(1, std::memory_order_relaxed);
+      if (n < 8)
+        LOG_I("input-callsite", "cellPadGetData call %u at 0x%08x lr=0x%08llx port=%llu in %s", n + 1, ctx.cia,
+              (unsigned long long)ctx.lr, (unsigned long long)ctx.r[3], thread_desc().c_str());
+    }
     if (imp->lle_opd) {  // traced call into a firmware module: the callee runs with its own TOC
       LOG_I("lle", "%s::%s(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) lr=0x%08llx in %s", imp->module.c_str(), imp->name.c_str(),
             (unsigned long long)ctx.r[3], (unsigned long long)ctx.r[4], (unsigned long long)ctx.r[5], (unsigned long long)ctx.r[6],
@@ -340,32 +349,44 @@ void icall(Ctx& ctx, u32 target) {
       dump_ctx(ctx, s);
       fatal(s);
     }
-    bool trace_this = cfg().trace_hle && !(
-      imp->module == "sysPrxForUser" && (
-        imp->name == "sys_lwmutex_lock" || imp->name == "sys_lwmutex_unlock" ||
-        imp->name == "sys_lwmutex_trylock" || imp->name == "sys_time_get_system_time" ||
-        imp->name == "sys_ppu_thread_get_id" || imp->name == "sys_lwmutex_create" ||
-        imp->name == "sys_lwmutex_destroy" || imp->name == "sys_spinlock_initialize" ||
-        imp->name == "sys_spinlock_lock" || imp->name == "sys_spinlock_unlock" ||
-        imp->name == "sys_spinlock_trylock"
-      )
-    ) && imp->module != "cellSpurs" && imp->module != "cellSpursJq";
+    PpuThread* cur_t = cur_thread();
+    bool is_fileman = cur_t && (cur_t->name == "FileMan");
+    bool in_window = is_cross_window_active();
+    bool trace_active = cfg().trace_hle || in_window || is_fileman;
 
-    if (trace_this) {
-      double now_sec = double(lv2::system_time_us()) / 1e6;
-      LOG_I("hle-trace", "[%.4fs] HLE %s::%s(0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx) in %s (lr=0x%08llx)",
-            now_sec, imp->module.c_str(), imp->name.c_str(),
-            (unsigned long long)ctx.r[3], (unsigned long long)ctx.r[4],
-            (unsigned long long)ctx.r[5], (unsigned long long)ctx.r[6],
-            (unsigned long long)ctx.r[7], thread_desc().c_str(), (unsigned long long)ctx.lr);
+    bool is_noisy = false;
+    if (!is_fileman) {
+      const std::string& name = imp->name;
+      const std::string& mod = imp->module;
+      if (mod == "cellGcmSys" || name.rfind("cellGcm", 0) == 0 ||
+          name.rfind("cellPadGet", 0) == 0 ||
+          name.rfind("sys_ppu_thread_get_id", 0) == 0 ||
+          name.rfind("cellSysutilCheckCallback", 0) == 0 ||
+          name.rfind("cellRtc", 0) == 0 ||
+          name.rfind("sys_timer_usleep", 0) == 0 ||
+          name.rfind("sys_lwmutex_", 0) == 0 ||
+          name.rfind("sys_lwcond_", 0) == 0 ||
+          name.rfind("sys_spinlock_", 0) == 0 ||
+          name.rfind("sys_event_queue_", 0) == 0 ||
+          name.rfind("sys_semaphore_", 0) == 0 ||
+          name.rfind("sys_cond_", 0) == 0 ||
+          name.rfind("sys_mutex_", 0) == 0 ||
+          name == "sys_time_get_system_time" ||
+          mod == "cellSpurs" || mod == "cellSpursJq") {
+        is_noisy = true;
+      }
     }
+
+    u64 a0 = ctx.r[3], a1 = ctx.r[4], a2 = ctx.r[5], a3 = ctx.r[6];
     {
       CallScope scope(imp->name.c_str(), ctx);
       imp->fn(ctx);
     }
-    if (trace_this) {
-      double now_sec = double(lv2::system_time_us()) / 1e6;
-      LOG_I("hle-trace", "[%.4fs]   -> %s returned 0x%llx", now_sec, imp->name.c_str(), (unsigned long long)ctx.r[3]);
+    u64 ret = ctx.r[3];
+
+    if (trace_active && (!is_noisy || ret != 0 || is_fileman)) {
+      LOG_I("hle", "hle: %s(0x%llx, 0x%llx, 0x%llx, 0x%llx) -> 0x%llx [%s]",
+            imp->name.c_str(), a0, a1, a2, a3, ret, thread_desc().c_str());
     }
     return;
   }
@@ -389,25 +410,38 @@ void syscall(Ctx& ctx) {
     dump_ctx(ctx, s);
     fatal(s);
   }
-  bool trace_sc = cfg().trace_hle && e && (
-    std::string(e->name) != "sys_lwmutex_lock" && std::string(e->name) != "sys_lwmutex_unlock" &&
-    std::string(e->name) != "sys_time_get_system_time"
-  );
-  if (trace_sc) {
-    double now_sec = double(lv2::system_time_us()) / 1e6;
-    LOG_I("sys-trace", "[%.4fs] SYSCALL %u %s(0x%llx, 0x%llx, 0x%llx, 0x%llx) in %s (cia=0x%08x, lr=0x%08llx)",
-          now_sec, n, e->name,
-          (unsigned long long)ctx.r[3], (unsigned long long)ctx.r[4],
-          (unsigned long long)ctx.r[5], (unsigned long long)ctx.r[6],
-          thread_desc().c_str(), ctx.cia, (unsigned long long)ctx.lr);
+  PpuThread* cur_t = cur_thread();
+  bool is_fileman = cur_t && (cur_t->name == "FileMan");
+  bool in_window = is_cross_window_active();
+  bool trace_active = cfg().trace_hle || in_window || is_fileman;
+
+  bool is_noisy = false;
+  if (!is_fileman) {
+    std::string_view name = e->name;
+    if (name.rfind("sys_lwmutex_", 0) == 0 ||
+        name.rfind("sys_lwcond_", 0) == 0 ||
+        name.rfind("sys_spinlock_", 0) == 0 ||
+        name.rfind("sys_event_queue_", 0) == 0 ||
+        name.rfind("sys_semaphore_", 0) == 0 ||
+        name.rfind("sys_cond_", 0) == 0 ||
+        name.rfind("sys_mutex_", 0) == 0 ||
+        name.rfind("sys_timer_usleep", 0) == 0 ||
+        name == "sys_time_get_system_time" ||
+        name == "sys_ppu_thread_get_id") {
+      is_noisy = true;
+    }
   }
+
+  u64 a0 = ctx.r[3], a1 = ctx.r[4], a2 = ctx.r[5], a3 = ctx.r[6];
   {
     CallScope scope(e->name, ctx);
     e->fn(ctx);
   }
-  if (trace_sc) {
-    double now_sec = double(lv2::system_time_us()) / 1e6;
-    LOG_I("sys-trace", "[%.4fs]   -> syscall %u returned 0x%llx", now_sec, n, (unsigned long long)ctx.r[3]);
+  u64 ret = ctx.r[3];
+
+  if (trace_active && (!is_noisy || ret != 0 || is_fileman)) {
+    LOG_I("hle", "hle: %s(0x%llx, 0x%llx, 0x%llx, 0x%llx) -> 0x%llx [%s]",
+          e->name, a0, a1, a2, a3, ret, thread_desc().c_str());
   }
 }
 

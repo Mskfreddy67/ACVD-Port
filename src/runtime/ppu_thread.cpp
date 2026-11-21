@@ -11,7 +11,6 @@
 #include <vector>
 
 #include "ppu/ppu_recomp.h"
-#include "runtime/game/frame_policy.h"
 #include "runtime/hle.h"
 #include "runtime/input.h"
 #include "runtime/log.h"
@@ -61,7 +60,6 @@ DWORD WINAPI thread_main(LPVOID p) {
   }
   t->cv.notify_all();
   LOG_I("thread", "thread 0x%x '%s' exited (status 0x%llx)", t->id, t->name.c_str(), (unsigned long long)status);
-  game::thread_exited(t->name);
   if (t->tls_block) tls_free(t->tls_block);
   return 0;
 }
@@ -90,6 +88,7 @@ CallScope::~CallScope() {
 
 void thread_dump() {
   std::lock_guard lk(g_mu);
+  LOG_I("watchdog", "PPU thread snapshot: %zu thread(s)", g_threads.size());
   for (auto& [id, t] : g_threads) {
     const char* call = t->in_call.load(std::memory_order_acquire);
     u32 pc = t->call_pc ? t->call_pc : t->ctx.cia;
@@ -122,9 +121,9 @@ void thread_dump() {
         wait_what = ac4::strprintf("in %s(arg0=0x%llx, arg1=0x%llx)", call,
                                    (unsigned long long)t->call_args[0], (unsigned long long)t->call_args[1]);
       }
-      LOG_I("dump", "PPU 0x%x '%s' %s: PC 0x%08x, LR 0x%08x, SP 0x%08x, in %s (sync obj: 0x%08llx) [%s]",
+      LOG_I("watchdog", "PPU 0x%x '%s' %s: PC 0x%08x, LR 0x%08x, SP 0x%08x, in %s (sync obj: 0x%08llx) [%s]",
             id, t->name.c_str(), st, pc, lr, sp, call, (unsigned long long)t->call_args[0], wait_what.c_str());
-      LOG_I("dump", "    args: r3=0x%08llx r4=0x%08llx r5=0x%08llx r6=0x%08llx",
+      LOG_I("watchdog", "    args: r3=0x%08llx r4=0x%08llx r5=0x%08llx r6=0x%08llx",
             (unsigned long long)t->call_args[0], (unsigned long long)t->call_args[1],
             (unsigned long long)t->call_args[2], (unsigned long long)t->call_args[3]);
 
@@ -138,9 +137,9 @@ void thread_dump() {
         frames += ac4::strprintf(" [%d] 0x%08x", depth, ret_addr);
         cur_sp = next_sp;
       }
-      LOG_I("dump", "    guest backchain:%s", frames.c_str());
+      LOG_I("watchdog", "    guest backchain:%s", frames.c_str());
     } else {
-      LOG_I("dump", "PPU 0x%x '%s' %s: in guest code at PC 0x%08x, LR 0x%08x", id, t->name.c_str(), st, pc, lr);
+      LOG_I("watchdog", "PPU 0x%x '%s' %s: in guest code at PC 0x%08x, LR 0x%08x", id, t->name.c_str(), st, pc, lr);
     }
   }
 }
@@ -259,7 +258,6 @@ s32 thread_start(u32 id) {
   LOG_I("thread", "thread 0x%x '%s' started (entry opd 0x%x, prio %d, stack 0x%x+0x%x, tls 0x%x)", t->id, t->name.c_str(),
         t->entry_opd, t->prio, t->stack_addr, t->stack_size, t->tls_block);
   input_thread_started(t->name);  // anchors for scripted input
-  game::thread_started(t->name);   // frame rate policy (game/frame_policy.h)
   if (handoff) {
     std::unique_lock lk(t->mu);
     if (!t->cv.wait_for(lk, std::chrono::milliseconds(20), [&] { return !t->handoff.load(); })) {

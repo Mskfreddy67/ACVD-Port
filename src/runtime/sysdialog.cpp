@@ -5,6 +5,7 @@
 #include <xinput.h>
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <cctype>
 #include <chrono>
@@ -12,6 +13,7 @@
 #include <cstdlib>
 #include <ctime>
 #include <deque>
+#include <memory>
 #include <mutex>
 
 #include "runtime/config.h"
@@ -89,12 +91,14 @@ struct Dlg {
   bool mouse = false;  // the mouse was used last: its cursor shows
   int last_click_row = -1;
   Clock::time_point last_click;
+  std::array<bool, 256> keys_held_at_open{};
 };
 // The dialog on screen: shared by the waiting game thread, the window thread (input) and the
 // presenting thread (view).
 std::recursive_mutex g_dmu;
 std::condition_variable_any g_dcv;
 Dlg* g_dlg = nullptr;
+std::unique_ptr<Dlg> g_progress;
 
 void finish(Dlg* d, int result) {
   d->result = result;
@@ -120,8 +124,15 @@ void accept(Dlg* d) {
       if (rows_of(d) > 0) finish(d, d->v.focus);
       break;
     case ui::DialogView::Question: finish(d, d->v.button == 1 ? 0 : 1); break;
-    case ui::DialogView::Text: finish(d, 1); break;
+    case ui::DialogView::Text:
+      if (d->v.edit.empty()) {
+        d->v.text = "A name is required. Type text, then press Enter.";
+        return;
+      }
+      finish(d, 1);
+      break;
     case ui::DialogView::Message: finish(d, 0); break;
+    case ui::DialogView::Progress: break;
   }
 }
 void back(Dlg* d) { finish(d, d->v.kind == ui::DialogView::List ? -1 : 0); }
@@ -171,14 +182,17 @@ bool show(Dlg* d) {
   } hold;
   if (!gpu::window_handle()) return false;
   d->pad_last = pad_now();
+  for (u32 vk = 0; vk < d->keys_held_at_open.size(); ++vk)
+    d->keys_held_at_open[vk] = input_key_down(vk);
   const bool captured = gpu::window_mouse_captured();
   if (captured) gpu::window_set_mouse_capture(false);  // the dialog takes the mouse
   {
     std::unique_lock lk(g_dmu);
+    Dlg* previous = g_dlg;
     g_dlg = d;
     gpu::window_refresh_cursor();
     g_dcv.wait(lk, [&] { return d->done; });
-    g_dlg = nullptr;
+    g_dlg = previous;
   }
   gpu::window_refresh_cursor();
   if (captured) gpu::window_set_mouse_capture(true);
@@ -189,6 +203,29 @@ bool show(Dlg* d) {
 
 bool active() { return g_active.load() > 0; }
 u32 released_count() { return g_released.load(); }
+
+void begin_progress(const std::string& text) {
+  std::lock_guard lk(g_dmu);
+  if (g_progress) return;
+  g_progress = std::make_unique<Dlg>();
+  g_progress->v.kind = ui::DialogView::Progress;
+  g_progress->v.heading = "SAVED DATA UTILITY";
+  g_progress->v.text = text;
+  g_progress->v.button = -1;
+  if (g_dlg == nullptr) g_dlg = g_progress.get();
+  g_active.fetch_add(1);
+  gpu::window_refresh_cursor();
+}
+
+void end_progress() {
+  std::lock_guard lk(g_dmu);
+  if (!g_progress) return;
+  if (g_dlg == g_progress.get()) g_dlg = nullptr;
+  g_progress.reset();
+  g_released.fetch_add(1);
+  g_active.fetch_sub(1);
+  gpu::window_refresh_cursor();
+}
 
 bool shown() {
   std::lock_guard lk(g_dmu);
@@ -210,7 +247,16 @@ bool view(ui::DialogView* out) {
 void on_key(u32 vk, bool down, bool repeat) {
   std::lock_guard lk(g_dmu);
   Dlg* d = g_dlg;
-  if (!d || d->done || !down) return;
+  if (!d || d->done || vk >= d->keys_held_at_open.size()) return;
+  if (d->v.kind == ui::DialogView::Progress) return;
+  if (!down) {
+    d->keys_held_at_open[vk] = false;
+    return;
+  }
+  if (d->keys_held_at_open[vk]) {
+    LOG_I("sysdlg", "ignored held key 0x%02x until key-up", vk);
+    return;
+  }
   use_keys(d);
   ui::DialogView& v = d->v;
   if (vk == VK_ESCAPE) {
@@ -236,7 +282,8 @@ void on_key(u32 vk, bool down, bool repeat) {
     case ui::DialogView::Text:
       if (vk == VK_BACK || vk == VK_DELETE) erase(d);
       break;
-    case ui::DialogView::Message: break;
+    case ui::DialogView::Message:
+    case ui::DialogView::Progress: break;
   }
 }
 
@@ -265,6 +312,7 @@ void on_mouse_button(int button, bool down, int x, int y) {
   std::lock_guard lk(g_dmu);
   Dlg* d = g_dlg;
   if (!d || d->done || !down) return;  // presses answer (a release from the game's menu does not)
+  if (d->v.kind == ui::DialogView::Progress) return;
   d->mouse = true;
   if (button == 1) {
     back(d);
@@ -307,6 +355,7 @@ void tick() {
   std::lock_guard lk(g_dmu);
   Dlg* d = g_dlg;
   if (!d || d->done) return;
+  if (d->v.kind == ui::DialogView::Progress) return;
   if (std::string ans; take_live(&ans)) {  // dev: a live answer for the dialog on screen
     LOG_I("sysdlg", "open dialog: live answer '%s'", ans.c_str());
     if (d->v.kind == ui::DialogView::Text) {

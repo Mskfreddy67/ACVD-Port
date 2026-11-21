@@ -11,7 +11,7 @@ struct Config {
   std::string settings_file;  // shared settings (common/settings_file.h): <data>\config\settings.ini
   unsigned keep_runs = 0;   // run directories kept under <data>\runs (0: all)
   std::string disc_root;    // read-only PS3 disc folder (contains PS3_GAME)
-  std::string title_id;     // from the disc's PARAM.SFO (TITLE_ID), e.g. BLUS30027
+  std::string title_id;     // from the disc's PARAM.SFO (TITLE_ID), e.g. BLUS31194
   std::string title;        // from the disc's PARAM.SFO (TITLE)
   std::string prepared;     // ac4-prep output (eboot.elf, update/)
   std::string hdd0;         // writable /dev_hdd0 (game data, saves)

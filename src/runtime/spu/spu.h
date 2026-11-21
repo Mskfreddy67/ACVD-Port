@@ -145,6 +145,17 @@ struct Thread {
   u64 compiled_runs = 0, interp_blocks = 0;
 
   // Diagnostics: channel & atomic & rate tracking
+  struct ChannelStat {
+    std::atomic<uint64_t> reads{0};
+    std::atomic<uint64_t> writes{0};
+    std::atomic<uint32_t> last_val{0};
+  };
+  ChannelStat ch_stat[32];
+  std::atomic<uint64_t> last_exec_time_us{0};
+  std::atomic<uint64_t> total_inst_count{0};
+  std::atomic<int> spu_state{0};  // 0: STOPPED, 1: RUNNING, 2: WAIT_EVENT, 3: HALTED
+  std::string last_event_str;
+
   u32 last_ch_op = ~0u;
   bool last_ch_is_write = false;
   u64 getllar_count = 0;

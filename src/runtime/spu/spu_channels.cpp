@@ -4,6 +4,8 @@
 // value-checked: loss is detected by comparing the reserved line with memory, lazily, whenever
 // the event state is examined (as in the reference emulator).
 #include <cstring>
+#include <mutex>
+#include <set>
 
 #include "ppu/ppu_recomp.h"
 #include "runtime/config.h"
@@ -481,7 +483,9 @@ u32 read_channel(Thread& t, u32 ch) {
   t.last_ch_op = ch;
   t.last_ch_is_write = false;
   ++t.ch_reads;
+  if (ch < 32) t.ch_stat[ch].reads.fetch_add(1, std::memory_order_relaxed);
   u32 v = read_channel_impl(t, ch);
+  if (ch < 32) t.ch_stat[ch].last_val.store(v, std::memory_order_relaxed);
   if (t.traced && ch != SPU_RdDec && ch != MFC_RdTagStat && ch != MFC_RdAtomicStat && trace_on(t, ch == SPU_RdInMbox ? 4 : 2))
     LOG_I("spu-trace", "%s pc %05x rdch %u -> 0x%x", t.name.c_str(), t.pc, ch, v);
   return v;
@@ -557,9 +561,19 @@ u32 read_channel_impl(Thread& t, u32 ch) {
       t.in_mbox.pop_front();
       return v;
     }
-    default:
-      LOG_E("spu", "SPU %s: read of unsupported channel %u at pc 0x%05x", t.name.c_str(), ch, t.pc);
+    default: {
+      static std::set<u32> s_unimpl_rdch;
+      static std::mutex s_mu;
+      bool first = false;
+      {
+        std::lock_guard lk(s_mu);
+        first = s_unimpl_rdch.insert(ch).second;
+      }
+      if (first) {
+        LOG_E("spu", "SPU %s: read of unsupported channel %u at pc 0x%05x", t.name.c_str(), ch, t.pc);
+      }
       return 0;
+    }
   }
 }
 
@@ -567,6 +581,10 @@ void write_channel(Thread& t, u32 ch, u32 v) {
   t.last_ch_op = ch;
   t.last_ch_is_write = true;
   ++t.ch_writes;
+  if (ch < 32) {
+    t.ch_stat[ch].writes.fetch_add(1, std::memory_order_relaxed);
+    t.ch_stat[ch].last_val.store(v, std::memory_order_relaxed);
+  }
   if (t.traced && (ch == SPU_WrEventMask || ch == SPU_WrEventAck || ch == SPU_WrOutMbox || ch == SPU_WrOutIntrMbox ||
                    ch == SPU_WrDec || ch == MFC_WrListStallAck) && trace_on(t, ch == SPU_WrOutMbox || ch == SPU_WrOutIntrMbox ? 4 : 2))
     LOG_I("spu-trace", "%s pc %05x wrch %u 0x%x", t.name.c_str(), t.pc, ch, v);
@@ -645,9 +663,19 @@ void write_channel(Thread& t, u32 ch, u32 v) {
     case SPU_PM_Start_Ev:
     case SPU_PM_Stop_Ev:
       return;  // performance-monitor hooks: no effect
-    default:
-      LOG_E("spu", "SPU %s: write of unsupported channel %u (0x%x) at pc 0x%05x", t.name.c_str(), ch, v, t.pc);
+    default: {
+      static std::set<u32> s_unimpl_wrch;
+      static std::mutex s_mu;
+      bool first = false;
+      {
+        std::lock_guard lk(s_mu);
+        first = s_unimpl_wrch.insert(ch).second;
+      }
+      if (first) {
+        LOG_E("spu", "SPU %s: write of unsupported channel %u (0x%x) at pc 0x%05x", t.name.c_str(), ch, v, t.pc);
+      }
       return;
+    }
   }
 }
 

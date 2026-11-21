@@ -6,8 +6,22 @@
 
 #include "runtime/config.h"
 #include "runtime/hle.h"
+#include "runtime/lv2/lv2.h"
+#include "runtime/spurs_jq_diag.h"
 #include "runtime/sysdialog.h"
 #include "runtime/sysutil.h"
+
+namespace rt {
+std::atomic<bool> g_osk_unloaded{false};
+std::atomic<uint64_t> g_cross_after_osk_time_us{0};
+
+bool is_cross_window_active() {
+  uint64_t cross_t = g_cross_after_osk_time_us.load(std::memory_order_relaxed);
+  if (cross_t == 0) return false;
+  uint64_t now = lv2::system_time_us();
+  return (now >= cross_t && (now - cross_t) <= 20000000ull); // 20s
+}
+}  // namespace rt
 
 namespace rt::osk {
 namespace {
@@ -15,6 +29,7 @@ namespace {
 constexpr s32 OSK_ERROR_IME_ALREADY_IN_USE = s32(0x8002b501), OSK_ERROR_PARAM = s32(0x8002b504);
 constexpr s32 MSGDIALOG_ERROR_DIALOG_NOT_OPENED = s32(0x8002b302);
 constexpr u64 EV_LOADED = 0x0502, EV_FINISHED = 0x0503, EV_UNLOADED = 0x0504;
+// CellOskDialogInputFieldResult (PS3 SDK): 0: OK, 1: CANCELED, 2: ABORT, 3: NO_INPUT_TEXT
 constexpr s32 RESULT_OK = 0, RESULT_CANCELED = 1, RESULT_ABORT = 2, RESULT_NO_INPUT_TEXT = 3;
 constexpr u32 kStringSize = 512;  // CELL_OSKDIALOG_STRING_SIZE
 
@@ -58,7 +73,7 @@ void join_worker() {
 }  // namespace
 
 // cellOskDialogLoadAsync(container, dialogParam, inputFieldInfo)
-s32 cellOskDialogLoadAsync(u32 container, u32 dialog_param, Ptr<InputFieldInfo> field) {
+s32 cellOskDialogLoadAsync(ppu::Ctx& ctx, u32 container, u32 dialog_param, Ptr<InputFieldInfo> field) {
   if (!dialog_param || !field || !field->message || !field->init_text || field->limit_length > kStringSize) return OSK_ERROR_PARAM;
   std::lock_guard lk(g_mu);
   if (g_open) return OSK_ERROR_IME_ALREADY_IN_USE;
@@ -71,6 +86,22 @@ s32 cellOskDialogLoadAsync(u32 container, u32 dialog_param, Ptr<InputFieldInfo> 
   g_result = RESULT_CANCELED;
   g_text.clear();
   std::string prompt8 = to_utf8(prompt);
+  {
+    u32 lr = u32(ctx.lr);
+    u32 sp = u32(ctx.r[1]);
+    std::string frames = ac4::strprintf(" [0] 0x%08x (LR)", lr);
+    u32 cur_sp = sp;
+    for (int depth = 1; depth <= 4 && cur_sp >= 0x00010000u && cur_sp < 0xF0000000u && !(cur_sp & 7); ++depth) {
+      u32 next_sp = u32(ppu::r64(cur_sp));
+      if (!next_sp) next_sp = ppu::r32(cur_sp);
+      if (next_sp <= cur_sp || next_sp >= 0xF0000000u) break;
+      u32 ret_addr = u32(ppu::r64(next_sp + 16));
+      if (!ret_addr) ret_addr = ppu::r32(next_sp + 16);
+      frames += ac4::strprintf(" [%d] 0x%08x", depth, ret_addr);
+      cur_sp = next_sp;
+    }
+    LOG_I("osk", "cellOskDialogLoadAsync PPU backchain:%s", frames.c_str());
+  }
   LOG_I("osk", "cellOskDialogLoadAsync: '%s' (initial '%s', up to %u characters)", prompt8.c_str(), to_utf8(initial).c_str(), limit);
   sysutil::post_event(EV_LOADED, 0);
   g_worker = std::thread([prompt8, initial, limit] {
@@ -121,7 +152,8 @@ s32 cellOskDialogUnloadAsync(Ptr<CallbackReturnParam> out) {
     out->numCharsResultString = s32(n);
   }
   g_open = false;
-  LOG_I("osk", "cellOskDialogUnloadAsync: result %d, numChars %d", g_result, s32(out->numCharsResultString));
+  rt::g_osk_unloaded.store(true, std::memory_order_release);
+  LOG_I("osk", "cellOskDialogUnloadAsync: result %d, numChars %d (CROSS trigger armed for HLE diagnostics)", g_result, s32(out->numCharsResultString));
   sysutil::post_event(EV_UNLOADED, 0);
   return CELL_OK;
 }
